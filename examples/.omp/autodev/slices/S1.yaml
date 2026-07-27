@@ -1,0 +1,33 @@
+slice_id: S1
+title: "抽取 mesh 数据模型"
+goal: "把 Fortran COMMON 块中的 mesh 状态抽取为强类型的 C++ MeshData 结构"
+depends_on: []
+stage: planning
+replan_attempts: 0
+acceptance_criteria:
+  - id: S1-AC1
+    desc: "MeshData struct 覆盖原 COMMON 块全部字段"
+    verify: "grep + 单元自测"
+    kind: machine
+    status: pending
+  - id: S1-AC2
+    desc: "字段类型/精度与原 COMMON 一致（real/sp 映射正确）"
+    verify: "llm_judge: 对照 COMMON 声明核对类型与 kind 参数"
+    kind: llm_judge
+    status: pending
+tasks:
+  - id: T1
+    title: "映射 COMMON 块到 struct"
+    status: done
+    owner_role: architect
+    accept: "字段覆盖 checklist 通过"
+  - id: T2
+    title: "写 C++ MeshData + gtest"
+    status: doing
+    owner_role: executor
+    accept: "gtest 通过且无 -Werror"
+  - id: T3
+    title: "接入 CMake 构建"
+    status: blocked
+    blocked_by: [T2]
+    reason: "等父 agent 确认导出符号策略（ABI 稳定性）"

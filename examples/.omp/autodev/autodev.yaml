@@ -1,0 +1,75 @@
+project: "CAE mesh reader refactor"
+goal: "把遗留 Fortran mesh reader 重构为模块化 C++ reader，API 稳定"
+max_replans: 3
+# 上下文预算护栏：百分比相对模型窗口，**不写死绝对值**（200K/256K/1M 窗口一律按比例）。
+# modelMaxContext 由 omp 读取（Goal Mode contextWindow / models.yml）；此处仅作可选显式覆盖。
+# contextBudget:
+#   targetPct: 0.40          # 最优区域中心（绿区）
+#   hardCeilingPct: 0.50     # 硬上限 = 0.50 × modelMaxContext（红区，越界 read_gate 拒绝）
+recon:
+  # ① RECON-PLAN 的 LLM 产出（示例）。注意：这是生成的，不是写死的常量。
+  # base taxonomy 仅作候选种子，最终维度由 LLM 针对本任务产出。
+  dimensions:
+    - id: D1
+      title: "数值正确性风险"
+      rationale: "Fortran COMMON/equivalence + 隐式类型，重构极易破坏数值结果"
+      weight: high
+      suggested_tools: [grep, read, ctest]
+      expected_artifact: "风险点清单(带 file:line) + 精度陷阱说明"
+    - id: D2
+      title: "MPI 通讯边界"
+      rationale: "reader 在并行网格划分下涉及 ghost cell 与 rank 间交换"
+      weight: high
+      suggested_tools: [grep, read]
+      expected_artifact: "rank 间数据依赖图"
+    - id: D3
+      title: "精度与可复现性"
+      rationale: "ifort vs gfortran 下浮点结合性差异可能导致回归抖动"
+      weight: medium
+      suggested_tools: [ctest, bench]
+      expected_artifact: "基准数值快照 baseline.json"
+    - id: D4
+      title: "改动影响面"
+      rationale: "reader 被多个求解器模块依赖，需评估 blast radius"
+      weight: high
+      suggested_tools: [grep, read]
+      expected_artifact: "调用方清单 + 依赖边"
+    - id: D5
+      title: "构建与依赖"
+      rationale: "CMake targets 与 ifort/gfortran flags 决定构建不变量"
+      weight: medium
+      suggested_tools: [read]
+      expected_artifact: "构建依赖图 + flags 清单"
+gate:
+  mandatory:
+    - id: G0
+      desc: "编译/构建通过"
+      verify: "cmake --build . --target all"
+      kind: machine
+      status: pending
+    - id: G1
+      desc: "现有回归测试通过"
+      verify: "ctest --output-on-failure"
+      kind: machine
+      status: pending
+  developer_seed:
+    - id: G-dev-1
+      desc: "新 C++ reader 公开 API 与旧 Fortran 接口语义一致"
+      verify: "llm_judge: 对照旧接口文档核对导出符号与参数语义"
+      kind: llm_judge
+      status: pending
+  derived: []
+  final_standard: []
+slices:
+  - id: S1
+    title: "抽取 mesh 数据模型"
+    stage: planning
+    depends_on: []
+    replan_attempts: 0
+    slice_file: .omp/autodev/slices/S1.yaml
+  - id: S2
+    title: "Fortran→C++ 边界层"
+    stage: queued
+    depends_on: [S1]
+    replan_attempts: 0
+    slice_file: .omp/autodev/slices/S2.yaml
