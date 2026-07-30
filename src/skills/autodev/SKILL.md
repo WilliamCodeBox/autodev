@@ -79,6 +79,21 @@ Examples:
 - `commands/autodev.md` — the `/autodev` command (main-loop prompt + subcommand dispatch, markdown form).
 - `autodev-design.md` (repo root, v7) — full architecture. `autodev-subcommands-design.md` (repo root) — HITL/HOTL subcommand design (consolidated). `HOTL-design.md` / `autodev-hitl-design.md` (repo root) — per-layer detail.
 
+## ADR (Architecture Decision Records)
+
+自动捕获以下决策到 `docs/adr/{id}-{slug}.md`（详见 `appendADR` 实现）：
+
+| 触发点 | ADR-worthy 条件 | 动作 |
+|---|---|---|
+| Slice DESIGN gate 通过 | 设计引入了**跨 slice 共享的架构约束**（接口协议、模块边界、数据格式），或有显式 tradeoff 争议 | 主循环在 DESIGN 阶段末尾调 `autodev(adr_title, adr_decision, adr_context, adr_consequences, adr_origin="DESIGN")` |
+| HITL override / modify | 裁决**改变了架构约束或接口契约**（LLM judge 自问："此裁决是否影响后续 slice 的设计前提？"） | HITL 裁决后调 `adr_append`，`adr_origin="HITL"`, `adr_decider="human"` |
+| 手写捕获 | LLM 在 slice 执行中发现值得记录的架构发现 | 随时调 `adr_append`，`adr_origin="manual"` |
+
+**不捕获**：task 推进、常规 approve/reject、recon 迭代、构建/测试结果（这些已进 run.json）。
+
+读取：`read docs/adr/{id}-{slug}.md`（复用通用 read 工具）。
+索引：目录 `docs/adr/` 含 frontmatter 的 markdown 文件，按文件名排序即为时间轴。
+
 ## Design rationale (why not hardcode recon)
 Dynamic decomposition beats static templates on task-variance (Microsoft Agent Framework);
 "let the model list what to investigate" is the proven PLAN stage of repo-scout. So recon

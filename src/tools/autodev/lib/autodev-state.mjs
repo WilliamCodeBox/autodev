@@ -562,6 +562,90 @@ export function resumeState(root = '.') {
   };
 }
 
+// ============================================================================
+// ADR (Architecture Decision Record) — 项目级架构决策沉淀
+//
+// 只写 markdown 文件到 docs/adr/，autodev.yaml 只维护 next_id 计数器。
+// 不维护 YAML 索引（目录扫描 + frontmatter 即时派生）。
+// 不原子双写（单文件写入，幂等）。
+// ============================================================================
+
+const ADR_DIR = 'docs/adr';
+
+function adrDir(root) {
+  return path.join(root, ADR_DIR);
+}
+
+function adrPath(root, id, slug) {
+  return path.join(adrDir(root), `${id}-${slug}.md`);
+}
+
+// 从标题生成文件系统安全的 slug：alphanumeric + CJK 保留，空格→连字符，小写，截 40 字符
+function titleToSlug(title) {
+  if (!title) return 'untitled';
+  let slug = title
+    .replace(/[^\w\u4e00-\u9fff\- ]/g, '')   // 只保留字母/数字/中文/空格/连字符
+    .trim()
+    .replace(/\s+/g, '-')                        // 空格 → 连字符
+    .replace(/-+/g, '-')                         // 合并连续连字符
+    .toLowerCase()
+    .slice(0, 40)
+    .replace(/^-|-$/g, '');                      // 去掉首尾连字符
+  return slug || 'untitled';
+}
+
+// 追加一条架构决策记录。
+// 只写 docs/adr/{id}-{slug}.md，autodev.yaml 仅维护 adr.next_id 计数器。
+// 返回 { path, id, slug }。
+export function appendADR(root = '.', { title, context, decision, consequences, origin, slice_id, decider, supersedes } = {}) {
+  if (!title || !decision) throw new Error('appendADR requires title and decision');
+
+  const doc = loadAutodev(root);
+  if (!doc) throw new Error('no autodev.yaml; run init first');
+
+  doc.adr = doc.adr || { next_id: 1 };
+  const id = String(doc.adr.next_id).padStart(4, '0');
+  const slug = titleToSlug(title);
+  const fp = adrPath(root, id, slug);
+
+  const consequencesBody = Array.isArray(consequences) ? consequences.map(c => `- ${c}`).join('\n') : (consequences || '- (待补充)');
+
+  const parts = [
+    `# ADR-${id}: ${title}`,
+    '',
+    `- **Date**: ${new Date().toISOString().slice(0, 10)}`,
+    `- **Status**: Accepted`,
+    `- **Decider**: ${decider || 'autodev'}`,
+    `- **Origin**: ${origin || 'manual'}`,
+    slice_id ? `- **Slice**: ${slice_id}` : null,
+    '',
+    '## Context',
+    '',
+    context || '(待补充)',
+    '',
+    '## Decision',
+    '',
+    decision,
+    '',
+    '## Consequences',
+    '',
+    consequencesBody,
+    '',
+    supersedes ? `## Links\n\n- Supersedes: ADR-${supersedes}` : null,
+    '',
+  ].filter(Boolean).join('\n');
+
+  fs.mkdirSync(adrDir(root), { recursive: true });
+  fs.writeFileSync(fp, parts, 'utf8');
+
+  doc.adr.next_id += 1;
+  saveAutodev(root, doc);
+
+  appendJournal(root, { op: 'adr_append', adr_id: id, slug, title: title.slice(0, 60) });
+
+  return { path: fp, id, slug };
+}
+
 // 真正执行 verify 命令（machine 类）并据退出码判定 —— 不采信 subagent 自报。
 // 任何失败（spawn 异常/非 0 退出）都记为 fail，并落 durable 产物 + 写 journal。
 export function runVerify(root = '.', opts = {}) {

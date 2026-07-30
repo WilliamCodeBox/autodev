@@ -16,6 +16,7 @@ import {
   writeArtifact, readArtifact, readJournal, appendJournal, resumeState, runVerify,
   saveSliceAndSyncParent, reconcileSliceStage, validateGateInvariants, SLICE_STAGES,
   establishMode, isHotlActive, isPaused, isWaiting, sliceHasPendingGate, clearHitlResidual,
+  appendADR,
 } from './lib/autodev-state.mjs';
 import { scoreReconDimensions, classifyReconConfidence } from './lib/recon-score.mjs';
 import {
@@ -50,6 +51,8 @@ const factory = (pi: any) => ({
       'hitl_request', 'hitl_respond', 'hitl_status', 'hitl_config',
       'hotl_init', 'hotl_steer', 'hotl_poll', 'hotl_pause', 'hotl_resume',
       'hotl_cancel', 'hotl_status', 'hotl_dashboard',
+      // ADR —— 架构决策记录（项目级产出，非流程历史）
+      'adr_append',
     ]),
     root: pi.zod.string().optional().describe('Project root, default "."'),
     autodev: pi.zod.any().optional().describe('Full autodev.yaml object for init'),
@@ -86,6 +89,13 @@ const factory = (pi: any) => ({
     scope: pi.zod.string().optional().describe('hotl_steer: alias for steer_scope (accepted for convenience)'),
     steer_intent: pi.zod.enum(['low', 'medium', 'high']).optional().describe('hotl_steer: P1-8 structured impact (LLM-judged, written back); medium/high forces re-confirm journal'),
     steer_touches_done: pi.zod.boolean().optional().describe('hotl_steer: P1-9 global(run) steers of kind=steer MUST declare whether they touch done dimensions; omit => conflict'),
+    // ---- ADR 参数字段（adr_append）----
+    adr_title: pi.zod.string().optional().describe('adr_append: 架构决策标题'),
+    adr_context: pi.zod.string().optional().describe('adr_append: 触发此决策的上下文'),
+    adr_decision: pi.zod.string().optional().describe('adr_append: 决策描述（选择什么，不选什么）'),
+    adr_consequences: pi.zod.array(pi.zod.string()).optional().describe('adr_append: 后果数组（好处、代价、风险）'),
+    adr_origin: pi.zod.string().optional().describe('adr_append: 来源（DESIGN / HITL / MANUAL）'),
+    adr_decider: pi.zod.enum(['autodev', 'human']).optional().describe('adr_append: 决策者'),
     retry: pi.zod.number().optional().describe('verify: retry count for this gate, used by P1-3 critical-machine-gate classification'),
   }),
   async execute(_toolCallId: string, params: any) {
@@ -460,6 +470,22 @@ const factory = (pi: any) => ({
           const r = hotlDashboard(root);
           if (!r.ok) return err(`hotl_dashboard failed: ${r.error}`);
           return ok(JSON.stringify(r, null, 2), r);
+        }
+        case 'adr_append': {
+          // 写一条 ADR markdown 到 docs/adr/，更新 autodev.yaml 的 adr.next_id。
+          // 不维护 YAML 索引，不原子双写。
+          if (!p.adr_title || !p.adr_decision) return err('ERR: adr_append requires adr_title and adr_decision');
+          const cons = Array.isArray(p.adr_consequences) ? p.adr_consequences : (p.adr_consequences ? [p.adr_consequences] : []);
+          const r = appendADR(root, {
+            title: p.adr_title,
+            context: p.adr_context || '',
+            decision: p.adr_decision,
+            consequences: cons,
+            origin: p.adr_origin || 'manual',
+            slice_id: p.slice_id,
+            decider: p.adr_decider,
+          });
+          return ok(`ADR-${r.id} written: ${r.path}`);
         }
         default:
           return err(`ERR: unknown operation ${p.operation}`);
