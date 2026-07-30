@@ -1,67 +1,67 @@
-# autodev 项目准则
+# autodev Project Guidelines
 
-## 架构设计偏好
+## Architecture Design Preferences
 
-**不增实体，砍到骨头。** 方案不因"以后可能有用"而保留任何东西。YAML 索引、原子双写、渐进披露三层——这些"虽然不错但不需要"的一律砍掉。唯一留存的标准是：没有它这件事做不成。
+**Don't add entities. Cut to the bone.** Nothing stays because "it might be useful later." YAML indexing, atomic dual-write, progressive disclosure layers -- anything "nice but not needed" gets cut. The only retention criterion is: it can't be done without it.
 
-**运行时状态 ≠ 项目产物。** `.omp/` 是机器状态，人类不直接读；`docs/` 是人类交付物，版本化、可浏览。混在一起是设计错误。
+**Runtime state != project artifacts.** `.omp/` is machine state, not meant for human reading; `docs/` is human deliverable, versioned and browsable. Mixing them is a design error.
 
-**功能边界必须锋利。** ADR 和 DESIGN 产物的区别、ADR 和 run.json 的区别、ADR 和 recon 记录的区别——每一条都要能一句话说清。说不清意味着职责没划对。
+**Feature boundaries must be sharp.** The difference between ADR and DESIGN output, between ADR and run.json, between ADR and recon records -- each must be explainable in one sentence. If not, the responsibility is wrong.
 
-**新加功能的默认回答是"不"。** 每引入一个 tool operation、一个触发点、一个索引，都要对抗审查来证明它不可或缺。
+**Default answer for new features is "no."** Every new tool operation, trigger point, or index must pass adversarial scrutiny to prove it's indispensable.
 
-**代码要能被测试明确覆盖。** 不仅仅是函数跑通，而是边界条件（缺参、空列表、无 init state）和不变式都写进测试文件，跟已有测试一起运行。
+**Code must be clearly covered by tests.** Not just functions passing, but boundary conditions (missing params, empty lists, no init state) and invariants written into test files, running alongside existing tests.
 
-**提示词和代码同等重要。** SKILL.md 的使用指南是 LLM 的行为契约，不是注释——它定义了 LLM 该在什么时候、依据什么条件做判断，跟代码里的校验同等重要。
+**Prompts are as important as code.** The usage guide in SKILL.md is an LLM behavior contract, not a comment -- it defines when and on what basis the LLM should make judgments, equal in importance to validation in code.
 
-## 验证方法论
+## Verification Methodology
 
-autodev 的可靠性取决于两层：状态机硬逻辑 + LLM 对提示词的服从。前者可确定性验证，后者需对抗式审查。
+autodev's reliability depends on two layers: state machine hard logic (deterministic verification) + LLM prompt adherence (adversarial review).
 
-### 方法论：两轴测试
+### Two-Axis Testing
 
-#### 轴一：代码正确性（确定性验证）
-**测什么**：autodev-state.mjs 的 YAML 读写、task 迁移边、slice stage 推进、replan 超限、HITL/HOTL 门控、上下文护栏。
+#### Axis 1: Code Correctness (Deterministic Verification)
+**What it tests**: YAML read/write in autodev-state.mjs, task transition edges, slice stage advancement, replan limits, HITL/HOTL gating, context budget guardrails.
 
-**怎么测**：引入真实 lib，在 `fs.mkdtempSync()` 下做真实 YAML I/O，按操作序列驱动（init → transitionTask → replan → checkSliceGate → checkFinalGate），每步断言磁盘状态。
+**How**: Uses real lib, runs real YAML I/O under `fs.mkdtempSync()`, driven by operation sequences (init -> transitionTask -> replan -> checkSliceGate -> checkFinalGate), asserting disk state at each step.
 
-**为什么**：state lib 是 omp 运行时加载的同一份代码（无 mock），YAML 落盘格式与运行时完全一致——测的是"真实跑的样子"。
+**Why**: The state lib is the same code loaded by the omp runtime (no mocks), the on-disk YAML format is identical to runtime -- testing "how it actually runs."
 
-#### 轴二：提示词约束（对抗式审查）
-**测什么**：LLM 是否严格遵循 autodev 命令的步骤顺序（RECON-PLAN → RECON → PLAN → SLICE EXECUTE → FINAL），不跳步、不漏步、不发明不存在的操作。
+#### Axis 2: Prompt Constraint (Adversarial Review)
+**What it tests**: Whether the LLM strictly follows autodev command step order (RECON-PLAN -> RECON -> PLAN -> SLICE EXECUTE -> FINAL), without skipping steps, missing steps, or inventing non-existent operations.
 
-**怎么测**：两层——
-1. **端到端**（06-e2e-omp）：`omp -p` 执行极简 autodev 任务，验证状态文件被正确写入（扩展可加载、工具可调用）。这是最低通过条件。
-2. **对抗审查**（`--omp` 标志）：收集 state bundle（YAML + run.json + 日志）→ 调用 `omp -p` 扇出 N 个隔离 subagent，各审一个维度（状态机合法性、YAML 完整性、门控正确性、边界条件），回 JSON 裁决。
+**How**, two layers:
+1. **End-to-end** (06-e2e-omp): `omp -p` runs a minimal autodev task, verifying state files are correctly written (extension loads, tools callable). Minimum passing condition.
+2. **Adversarial review** (`--omp` flag): collects a state bundle (YAML + run.json + logs) -> calls `omp -p` to fan out to N isolated subagents, each auditing one dimension (state machine legality, YAML completeness, gate correctness, boundary conditions), returning a JSON verdict.
 
-**为什么用 LLM 审 LLM**：提示词约束本质上是一个语义问题——"模型是否理解并执行了给定流程"。最经济的判断方式是让另一个模型用 adversarial 视角审查产出，找出"该有却没有"的阶段证据。
+**Why use LLM to review LLM**: Prompt constraints are a semantic problem -- "does the model understand and follow the given procedure." The most economical way to judge is to have another model examine the output from an adversarial perspective, finding "should have but doesn't" evidence.
 
-## 8 场景覆盖矩阵
+## 8-Scenario Coverage Matrix
 
-| 场景 | 轴 | 覆盖 |
-|---|---|---|
-| happy-path | 代码 | init→slice→task→reconcile→final gate 全闭环，recon 保留、父 stage 同步 |
-| blocked-replan | 代码 | doing→blocked→replan(attempts++)→超限 paused，磁盘持久化 |
-| hitl-mode | 代码 | establishMode 三层互斥、pending gate 硬阻塞(hitl.pending_gates)、approve 解除 |
-| gate-invariants | 代码 | R2 删 mandatory→validateGateInvariants 补回，幂等 |
-| hotl-steer | 代码 | steer→poll→pause→resume→cancel，loop_state 派生 |
-| e2e-omp | 提示词 | omp -p 跑 autodev（无 omp 自动 skip） |
-| context-budget | 代码 | 三态 zone、readGate 硬拒绝、LRU 驱逐 + pinned 保护 |
-| prompt-regression | 提示词 | LLM 对 prompt 契约的遵守：双通道、mandatory 不变式、schema 输出（eval cell） |
+| Scenario | Axis | Coverage |
+|----------|------|----------|
+| happy-path | Code | init -> slice -> task -> reconcile -> final gate full cycle, recon preserved, parent stage synced |
+| blocked-replan | Code | doing -> blocked -> replan (attempts++) -> exceeded -> paused, disk persistence |
+| hitl-mode | Code | establishMode three-layer mutual exclusion, pending gate hard block (hitl.pending_gates), approve unblock |
+| gate-invariants | Code | R2 deletes mandatory -> validateGateInvariants restores, idempotent |
+| hotl-steer | Code | steer -> poll -> pause -> resume -> cancel, loop_state derivation |
+| e2e-omp | Prompt | `omp -p` runs autodev (auto-skips without omp) |
+| context-budget | Code | three-zone, readGate hard reject, LRU eviction + pinned protection |
+| prompt-regression | Prompt | LLM adherence to prompt contract: dual-channel, mandatory invariants, schema output (eval cell) |
 
-## 运行
+## Running
 
 ```bash
-node tests/run-integration.mjs              # 轴一：全场景
-node tests/run-integration.mjs --omp        # 轴一 + 轴二
-node tests/run-integration.mjs --only=X     # 过滤
-node tests/run-integration.mjs --list       # 列场景
-node tests/test-state.mjs                   # 已有单元测试
-node tests/test-prompts.mjs                 # 提示词结构测试（毫秒级）
-node tests/test-prompts-consistency.mjs     # 提示词交叉一致性测试（毫秒级）
-# 行为测试在 eval cell 中运行（见 tests/prompt-behavior.mjs）
+node tests/run-integration.mjs              # Axis 1: all scenarios
+node tests/run-integration.mjs --omp        # Axis 1 + Axis 2
+node tests/run-integration.mjs --only=X     # Filter by scenario
+node tests/run-integration.mjs --list       # List scenarios
+node tests/test-state.mjs                   # Unit tests
+node tests/test-prompts.mjs                 # Prompt structure tests (milliseconds)
+node tests/test-prompts-consistency.mjs     # Prompt cross-consistency tests (milliseconds)
+# Behavioral tests run in eval cells (see tests/prompt-behavior.mjs)
 ```
 
-## Git 约定
-- **禁止强制推送**（`git push --force`）。历史必须线性可追踪。
-- 所有远程分支冲突通过 rebase 或 merge 解决，不得覆盖远程历史。
+## Git Convention
+- **Force push is forbidden** (`git push --force`). History must be linearly traceable.
+- All remote branch conflicts resolved via rebase or merge -- never overwrite remote history.
