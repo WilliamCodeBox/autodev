@@ -39,14 +39,14 @@ autodev 的三种模式是同一核心循环上叠加的"人类干预策略层"�
 
 - **auto**（`/autodev`）：无人工干预，Agent 自治跑完 RECON→PLAN→SLICE EXECUTE→FINAL。
 - **HITL / 人在环**（`/autodev hitl`）：四个审批点暂停等人裁决——`plan_approval` / `slice_pre_exec` /
-  `verify_failure` / `final_acceptance`（默认关，需 `hitl_config` 开启）。控制面：
-  `/autodev hitl approve|reject|modify|override <gate_id>`。未裁决 gate 存在时，
+  `verify_failure` / `final_acceptance`（默认关，需 `config gates.final_acceptance=true` 开启）。控制面：
+  `/autodev gate <id> accept|deny|force [reason]`。未裁决 gate 存在时，
   `transition_task` / `set_gate`(slice_ac) / `check_slice_gate` 返回 `BLOCKED_BY_PENDING_GATE`
   （状态级硬阻塞，P0-3）。
 - **HOTL / 人在环上**（`/autodev hotl`）：Agent 自治，人类监控 + 随时介入。控制面：
-  `/autodev hotl steer <kind> <text>`、`/autodev hotl poll|pause|resume|cancel|status|dashboard`。
+  `/autodev steer <text>`、`/autodev lifecycle pause|resume|cancel`、`/autodev status`。
   steer 在工具层吸收点（transition_task / check_slice_gate / replan 内）自动消费（P0-4）；
-  replan 超限收敛到 `hotl.loop_state=paused`，人类用 `/autodev hotl resume` 继续（P0-5/6）。
+  replan 超限收敛到 `hotl.loop_state=paused`，人类用 `/autodev lifecycle resume` 继续（P0-5/6）。
 
 模式语义统一（P0-7）：`mode` 仅作命令来源标记；HOTL 激活唯一由 `hotl.mode=supervised` 决定；两干预层互斥；
 `/autodev` 入口显式置位清除上次 yaml 残留。

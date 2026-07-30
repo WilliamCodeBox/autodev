@@ -7,28 +7,34 @@ description: >
 ---
 
 ## 子命令分发（$ARGUMENTS 首词解析）
-autodev 支持三种干预模式与一个控制面。**先解析 `$ARGUMENTS` 的首个词**再决定行为：
+autodev 支持两种模式入口与一个**跨模式控制面**（5 个动词共享）。**先解析 `$ARGUMENTS` 的首个词**再决定行为：
 
 | 首词 | 行为 |
 |------|------|
 | （空） | **auto**：调 `autodev` tool `set_mode auto`，跑下方主循环（无人工干预） |
-| `hitl` | 仅 `hitl` → 调 `set_mode hitl`，跑主循环 + **每关键决策点暂停等人审批**（见 HITL 检查点）；`hitl <action> ...` → 控制面，不跑循环 |
-| `hotl` | 仅 `hotl` → 调 `hotl_init`，跑主循环（Agent 自治，人可随时 steer/pause/resume/cancel）；`hotl <verb> ...` → 控制面，不跑循环 |
+| `hitl` | 仅 `hitl` → 调 `set_mode hitl`，跑主循环 + **每关键决策点暂停等人审批**（见 HITL 检查点）；若带后续参数 → 控制面，不跑循环 |
+| `hotl` | 仅 `hotl` → 调 `hotl_init`，跑主循环（Agent 自治，人可随时介入）；若带后续参数 → 控制面，不跑循环 |
+| `gate` | **跨模式控制面**：调 `autodev` tool `hitl_respond`（`decision` = 第二个词 `accept|deny|force`，`gate_id` = 第三个词，`note` = 剩余参数），不跑循环 |
+| `steer` | **跨模式控制面**：调 `autodev` tool `hotl_steer`（`note` = 剩余文本；scope 自动从 text 中推断 `@slice:` / `@task:`），不跑循环 |
+| `lifecycle` | **跨模式控制面**：调 `autodev` tool `hotl_<第二个词>`（`pause|resume|cancel`），不跑循环 |
+| `status` | **跨模式控制面**：调 `autodev` tool `hitl_status`（含自动吸收 pending steer），返回完整状态，不跑循环 |
+| `config` | **跨模式控制面**：调 `autodev` tool `hitl_config`（`hitl_patch` 从 `<key>=<value>` 参数对构建），不跑循环 |
 | `help` | 输出下方帮助并停止 |
 
-**控制面（首词带后续参数 → 只执行对应 tool op，不跑主循环，然后停止）：**
-- `/autodev hitl approve|reject|modify|override <gate_id>` → `autodev` tool `hitl_respond`（`decision`=首词，`gate_id`=第二词）
-- `/autodev hitl status [gate_id]` → `hitl_status`
-- `/autodev hitl config <json>` → `hitl_config`（`hitl_patch`=json，如 `{"mode":"advisory"}`）
-- `/autodev hotl steer <kind> [scope] <text>` → `hotl_steer`（`steer_kind`=kind，`note`=text，`steer_scope`=scope 可选如 `slice:S1`；可选 `steer_intent: low|medium|high` 结构化影响面，medium/high 强制二次确认；global(run) 指令须 `steer_touches_done: true|false` 显式声明是否触及 done 维度——P1-8/9）
-- `/autodev hotl poll|pause|resume|cancel|status|dashboard` → 对应 `hotl_*` op
-
-若首词是 `hitl`/`hotl` 但**无后续参数**，先置对应模式，再跑主循环。若首词是 `help`，输出下方帮助并停止。
+若首词是 `hitl`/`hotl` 但**无后续参数**，先置对应模式，再跑主循环。其余首词（`gate|steer|lifecycle|status|config|help`）**始终只执行控制面 op，不跑主循环**。
 
 ## 帮助
 - **auto（默认）**：`/autodev` —— Agent 完全自治跑完 RECON→PLAN→SLICE EXECUTE→FINAL。
-- **HITL（人在环）**：`/autodev hitl` 启动；在 plan_approval / slice_pre_exec / verify_failure / final_acceptance 四个审批点暂停等人裁决。控制面：`/autodev hitl approve|reject|modify|override <gate_id>`、`/autodev hitl status`、`/autodev hitl config '{"mode":"advisory"}'`。
-- **HOTL（人在环上）**：`/autodev hotl` 启动；Agent 自治，人类监控 + 随时介入。控制面：`/autodev hotl steer <kind> <text>`、`/autodev hotl poll|pause|resume|cancel|status|dashboard`。
+- **HITL（人在环）**：`/autodev hitl` 启动；在 plan_approval / slice_pre_exec / verify_failure / final_acceptance 四个审批点暂停等人裁决。
+  控制面：`/autodev gate <id> accept|deny|force [reason]`、`/autodev status`、`/autodev config mode=advisory`。
+- **HOTL（人在环上）**：`/autodev hotl` 启动；Agent 自治，人类监控 + 随时介入。
+  控制面：`/autodev steer <text>`、`/autodev lifecycle pause|resume|cancel`、`/autodev status`。
+- **跨模式控制面（5 个动词，hitl/hotl 下通用）：**
+  `/autodev gate <id> accept|deny|force [reason]` — 审批 gate
+  `/autodev steer <text>` — 注入引导指令
+  `/autodev lifecycle pause|resume|cancel` — 生命周期控制
+  `/autodev status` — 统一状态查询（含自动吸收 pendig steer）
+  `/autodev config <key>=<value>` — 动态配置
 - 通用：`/autodev help` 显示本帮助。
 
 # /autodev —— 自主完成目标并验收
@@ -108,17 +114,17 @@ Lost-in-the-Middle 让中段信息准确率掉 30%+）。autodev 用一道**工�
 `id/title/stage/depends_on/replan_attempts/slice_file` 等元数据）。
 
 ### ④ SLICE EXECUTE（orchestrate，逐 slice）
-> **HITL 检查点 · plan_approval**（仅 hitl 模式）：在 ③ 定稿、进入 ④ 前，对每个 slice 调 `autodev` tool `hitl_request`（`gate: plan_approval`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev hitl approve <gate_id>`"。在 `hitl_respond` 裁决前不得进入 ④（工具层也会硬阻）。（若该 slice 涉及数值重构 / MPI 边界等高风险，附 `sensitivity: numerical_risk|mpi_boundary`，使 advisory 超时也**不**静默放行——P1-2）
+> **HITL 检查点 · plan_approval**（仅 hitl 模式）：在 ③ 定稿、进入 ④ 前，对每个 slice 调 `autodev` tool `hitl_request`（`gate: plan_approval`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev gate <id> accept`"。在 `hitl_respond` 裁决前不得进入 ④（工具层也会硬阻）。（若该 slice 涉及数值重构 / MPI 边界等高风险，附 `sensitivity: numerical_risk|mpi_boundary`，使 advisory 超时也**不**静默放行——P1-2）
 对每个 slice 按 depends_on 顺序：
-> **HITL 检查点 · slice_pre_exec**（仅 hitl 模式）：进入某 slice 执行前（`set_slice_stage executing` 之前），调 `autodev` tool `hitl_request`（`gate: slice_pre_exec`，`slice_id`）。**调完即停止**等人裁决；裁决前不得执行该 slice。
-> **HOTL 说明**（仅 hotl 模式）：Agent 自治执行，**不暂停**。人类可在任意时刻 `/autodev hotl steer <kind> <text>` 下发指令。
-> **强约束（P1-6 / P0-4）**：你**必须**在每个主循环 checkpoint（每轮 `check_slice_gate` / `transition_task` / `replan` 调用点）主动调一次 `hotl_poll` 以吸收未消费的 steer——工具层也会在这些 op 内部自动吸收，但你必须显式 poll 以防 LLM 自觉漏吸收。若某 slice replan 超限收敛到 paused，人类用 `/autodev hotl resume` 继续。
+> **HITL 检查点 · slice_pre_exec**（仅 hitl 模式）：进入某 slice 执行前（`set_slice_stage executing` 之前），调 `autodev` tool `hitl_request`（`gate: slice_pre_exec`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev gate <id> accept`"。裁决前不得执行该 slice。
+> **HOTL 说明**（仅 hotl 模式）：Agent 自治执行，**不暂停**。人类可在任意时刻 `/autodev steer <text>` 下发指令。
+> **强约束（P1-6 / P0-4）**：你**必须**在每个主循环 checkpoint（每轮 `check_slice_gate` / `transition_task` / `replan` 调用点）主动调一次 `hotl_poll` 以吸收未消费的 steer——工具层也会在这些 op 内部自动吸收，但你必须显式 poll 以防 LLM 自觉漏吸收。若某 slice replan 超限收敛到 paused，人类用 `/autodev lifecycle resume` 继续。
 > **机器强停（P1-6）**：一旦人类调 `hotl_pause`/`hotl_cancel`，工具层已置 `loop_state=paused|cancelled` 并返回 **STRONG INSTRUCTION**，你必须**立即停手**（pause=停止所有自治工作、等待 resume；cancel=终止运行）。这是机器强制，不是咨询——无视强停指令等于违反核心契约。
 - 先走 **2-round 详细设计**（Design 阶段 subagent，其验收标准也走 TwoRoundGate）；
 - 进入执行前先调 `autodev` tool: `set_slice_stage`（slice_id，slice_stage: executing）；
 - 再 orchestrate 出 Implement → Verify 阶段 subagent，每阶段上下文隔离、自带验收；
   （Design/Implement/Verify 各自重产物写 `local://slice-<id>-*.md`，回轻量 JSON；**verify 命令由 autodev tool 实际执行，不采信 subagent 自报的 PASS**）
-> **HITL 检查点 · verify_failure**（仅 hitl 模式）：若 `verify` 退出码非 0 或任务进入 blocked，调 `autodev` tool `hitl_request`（`gate: verify_failure`，`slice_id`）。**调完即停止**等人裁决（approve=接受现状继续 / reject=回重规划 / override=人工免检染色）。
+> **HITL 检查点 · verify_failure**（仅 hitl 模式）：若 `verify` 退出码非 0 或任务进入 blocked，调 `autodev` tool `hitl_request`（`gate: verify_failure`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev gate <id> accept|deny|force [reason]`（accept=接受现状继续 / deny=驳回回重规划 / force=人工免检染色）"。裁决前不得继续。
 - task 状态用 autodev tool 管理：todo→doing→done（**done 为终态，禁止回退**，`transition_task` 会拒绝非法迁移）；done 需其 `accept` 通过；
 - 每完成一个 task（done）或一条 AC（pass）后，**必须**调 `autodev` tool: `check_slice_gate`（slice_id）。
   该 op 会据 task/AC 当前状态**真实落盘** slice.stage：全 done+全 pass → `done`、有 blocked → `blocked`、其余 → `verifying`，
@@ -130,8 +136,8 @@ Lost-in-the-Middle 让中段信息准确率掉 30%+）。autodev 用一道**工�
   永远从 green 起**，不背前序 slice 历史。
 
 ### ⑤ 最终验收
-> **HITL 检查点 · final_acceptance**（仅 hitl 模式，默认关闭，需 `hitl_config '{"gates":{"final_acceptance":true}}'` 开启）：在公布 DONE 前，调 `autodev` tool `hitl_request`（`gate: final_acceptance`）。**调完即停止**等人最终裁决；裁决前不得结束。
-> **HOTL 说明**（仅 hotl 模式）：Agent 自治完成最终验收，无需暂停；人类可随时 `/autodev hotl pause`/`cancel` 介入。同样遵循 ④ 的机器强停约束——收到 `hotl_pause`/`hotl_cancel` 的 STRONG INSTRUCTION 必须立即停手。
+> **HITL 检查点 · final_acceptance**（仅 hitl 模式，默认关闭，需 `config gates.final_acceptance=true` 开启）：在公布 DONE 前，调 `autodev` tool `hitl_request`（`gate: final_acceptance`）。**调完即停止**，提示人类："` await 最终审批：请运行 /autodev gate <id> accept|deny|force [reason]`"。裁决前不得结束。
+> **HOTL 说明**（仅 hotl 模式）：Agent 自治完成最终验收，无需暂停；人类可随时 `/autodev lifecycle pause`/`cancel` 介入。同样遵循 ④ 的机器强停约束——收到 `hotl_pause`/`hotl_cancel` 的 STRONG INSTRUCTION 必须立即停手。
 所有 slice done 后，autodev tool: build_standard + final_check。
 final_standard 全 pass → **DONE**，结束（最后做一次全局 `/handoff` 收尾，写明验收结论与遗留项）。
 不通过 → 重开相关 slice。
