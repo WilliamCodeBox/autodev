@@ -2,7 +2,7 @@
 
 autonomous software-development loop for oh-my-pi
 
-> [中文版文档](README.zh.md) | [Architecture](docs/ARCHITECTURE.md) | [Testing](docs/TESTING.md) | [Design Decisions](docs/DESIGN_DECISIONS.md) | [Installation](INSTALL.md)
+> [中文版文档](docs/README.zh.md) | [Architecture](docs/ARCHITECTURE.md) | [Testing](docs/TESTING.md) | [Design Decisions](docs/DESIGN_DECISIONS.md) | [Installation](docs/INSTALL.md)
 
 autodev is a **meta-agent** that orchestrates LLM subagents through a YAML-persisted state machine to complete coding tasks autonomously. It does not directly modify files or run commands -- it operates a state machine that does.
 
@@ -21,7 +21,7 @@ tar -xzf autodev-v7-offline.tar.gz -C .omp/
 /autodev "add user authentication to the API"
 ```
 
-For detailed installation options, see [INSTALL.md](INSTALL.md).
+For detailed installation options, see [INSTALL.md](docs/INSTALL.md).
 
 ## Architecture at a Glance
 
@@ -58,7 +58,7 @@ flowchart LR
 | [Architecture](docs/ARCHITECTURE.md) | Full loop diagram, all 8 design features, project structure |
 | [Testing](docs/TESTING.md) | Two-axis methodology, coverage matrix, running tests |
 | [Design Decisions](docs/DESIGN_DECISIONS.md) | Why YAML? Why separate tools? Why hard gates? Limitations |
-| [Installation](INSTALL.md) | Global vs project-level install, verification, uninstall |
+| [Installation](docs/INSTALL.md) | Global vs project-level install, verification, uninstall |
 
 ## License
 

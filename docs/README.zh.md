@@ -2,7 +2,7 @@
 
 适用于 oh-my-pi 的自主软件开发循环
 
-> [English](README.md) | [架构文档](docs/ARCHITECTURE.md) | [测试](docs/TESTING.md) | [设计决策](docs/DESIGN_DECISIONS.md) | [安装](INSTALL.md)
+> [English](../README.md) | [架构文档](ARCHITECTURE.md) | [测试](TESTING.md) | [设计决策](DESIGN_DECISIONS.md) | [安装](INSTALL.md)
 
 autodev 是一个 **meta-agent**：它不直接操作文件或调用 shell，而是通过 YAML 持久化状态机编排 LLM subagent 自主完成编码任务。
 
@@ -55,9 +55,9 @@ flowchart LR
 
 | 文档 | 内容 |
 |------|------|
-| [架构](docs/ARCHITECTURE.md) | 完整循环图、8 个设计特性、项目结构 |
-| [测试](docs/TESTING.md) | 两轴方法论、覆盖矩阵、运行测试 |
-| [设计决策](docs/DESIGN_DECISIONS.md) | 为什么用 YAML？为什么分离工具？局限与未解问题 |
+| [架构](ARCHITECTURE.md) | 完整循环图、8 个设计特性、项目结构 |
+| [测试](TESTING.md) | 两轴方法论、覆盖矩阵、运行测试 |
+| [设计决策](DESIGN_DECISIONS.md) | 为什么用 YAML？为什么分离工具？局限与未解问题 |
 | [安装](INSTALL.md) | 全局 vs 项目级安装、校验、卸载 |
 
 ## License
