@@ -1,0 +1,26 @@
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# --- 文本文件：统一 LF（Windows 检出时自动转换 CRLF，提交强制 LF） ---
+*.mjs     text diff=javascript
+*.ts      text diff=typescript
+*.js      text diff=javascript
+*.json    text diff=json
+*.md      text diff=markdown
+*.yaml    text diff=yaml
+*.yml     text diff=yaml
+*.sh      text eol=lf
+*.bash    text eol=lf
+*.ps1     text eol=crlf
+
+# --- 二进制文件：不做行尾处理 ---
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.svg     binary
+*.ico     binary
+*.tar     binary
+*.gz      binary
+*.zip     binary
+*.tar.gz  binary

@@ -1,0 +1,40 @@
+# --- 运行时状态 ---
+.omp/autodev/
+.omp/*.yaml
+.omp/tools/
+.omp/commands/
+.omp/skills/
+
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- 操作系统 ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.Directory
+
+# --- 编辑器 / IDE ---
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/*.code-snippets
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+
+# --- 构建产物 ---
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# --- 日志 / 临时文件 ---
+*.log
+tmp/
+temp/
