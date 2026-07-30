@@ -65,3 +65,56 @@ node tests/test-prompts-consistency.mjs     # Prompt cross-consistency tests (mi
 ## Git Convention
 - **Force push is forbidden** (`git push --force`). History must be linearly traceable.
 - All remote branch conflicts resolved via rebase or merge -- never overwrite remote history.
+
+---
+
+## Documentation Conventions
+
+### Version Control
+- Single source of truth: `VERSION` file at repo root, one line, semver (e.g. `1.0.0`).
+- Release tarball named `autodev-v{VERSION}-offline.tar.gz`.
+- Git tag `v{VERSION}` on each release commit.
+
+### Changelog
+- File: `CHANGELOG.md` at repo root.
+- Format: [Keep a Changelog](https://keepachangelog.com) -- sections Added / Changed / Fixed / Removed per version.
+- Date format: `YYYY-MM-DD`.
+- **MUST use `web_search` to confirm the current date before every changelog update.** Never guess or trust system clock alone.
+
+### English / Chinese Documentation
+All project documentation uses English **by default**. Chinese is a derived parallel translation.
+
+| File | Language | Location |
+|------|----------|----------|
+| `README.md` | English | repo root |
+| `docs/README.zh.md` | Chinese | `docs/` |
+| `docs/ARCHITECTURE.md` | English | `docs/` |
+| `docs/TESTING.md` | English | `docs/` |
+| `docs/DESIGN_DECISIONS.md` | English | `docs/` |
+| `docs/INSTALL.md` | English | `docs/` |
+
+### Chinese/English Sync (Must Keep Parallel)
+- `README.md` (English, root) and `docs/README.zh.md` (Chinese, docs/) **must have identical structure**: same headings, same order, same section count, same navigation links.
+- When adding a new section, feature, or link to `README.md`, the equivalent change MUST be applied to `docs/README.zh.md` in the same commit.
+- Chinese translation maintains technical accuracy; section headers and navigation links stay structurally identical.
+
+### Cross-Link Consistency
+- Every `docs/*.md` file is reachable from `docs/README.zh.md`'s "了解更多" table.
+- The index bar at the top of `README.md` and `docs/README.zh.md` must list the same set of linked documents.
+- When renaming, moving, or deleting any file, ALL cross-references across `README.md`, `docs/README.zh.md`, and `docs/*.md` must be updated in the same commit.
+- Relative paths: `README.md` references `docs/*.md` as `docs/FILE.md`; `docs/*.md` references sibling as `FILE.md`, parent as `../README.md`.
+
+### File Layout
+```
+autodev-extension/
+  README.md              ← English landing page, indexes all docs/*
+  VERSION                ← semver (single line)
+  CHANGELOG.md           ← Keep a Changelog format
+  AGENTS.md              ← this file (project-wide conventions)
+  docs/
+    README.zh.md         ← Chinese translation of README.md
+    INSTALL.md           ← installation guide
+    ARCHITECTURE.md      ← full architecture and design features
+    TESTING.md           ← testing methodology and coverage
+    DESIGN_DECISIONS.md  ← rationale and limitations
+```
