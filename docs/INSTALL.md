@@ -1,11 +1,13 @@
 # autodev Offline Installation
 
+Version: see [VERSION](../VERSION). Tarball: `autodev-v{VERSION}-offline.tar.gz`.
+
 ## Install (Choose One)
 
 ### A. Global Install (Available to All Projects)
 ```bash
 mkdir -p ~/.omp/agent
-tar -xzf autodev-v7-offline.tar.gz -C ~/.omp/agent/
+tar -xzf autodev-v{VERSION}-offline.tar.gz -C ~/.omp/agent/
 ```
 
 Verify:
@@ -18,7 +20,7 @@ ls ~/.omp/agent/tools/autodev/lib/
 ```bash
 cd <project-root>
 mkdir -p .omp
-tar -xzf autodev-v7-offline.tar.gz -C .omp/
+tar -xzf autodev-v{VERSION}-offline.tar.gz -C .omp/
 ```
 
 Verify:

@@ -2,7 +2,7 @@
 
 autonomous software-development loop for oh-my-pi
 
-> [中文版文档](docs/README.zh.md) | [Architecture](docs/ARCHITECTURE.md) | [Testing](docs/TESTING.md) | [Design Decisions](docs/DESIGN_DECISIONS.md) | [Installation](docs/INSTALL.md)
+> [中文版文档](docs/README.zh.md) · [Architecture](docs/ARCHITECTURE.md) · [Testing](docs/TESTING.md) · [Design Decisions](docs/DESIGN_DECISIONS.md) · [Installation](docs/INSTALL.md) · [Changelog](CHANGELOG.md)
 
 autodev is a **meta-agent** that orchestrates LLM subagents through a YAML-persisted state machine to complete coding tasks autonomously. It does not directly modify files or run commands -- it operates a state machine that does.
 
@@ -13,7 +13,7 @@ autodev is a **meta-agent** that orchestrates LLM subagents through a YAML-persi
 
 ```bash
 # 1. Install (project-level)
-tar -xzf autodev-v7-offline.tar.gz -C .omp/
+tar -xzf autodev-v{VERSION}-offline.tar.gz -C .omp/
 
 # 2. Restart omp or reload extensions
 

@@ -2,7 +2,7 @@
 
 适用于 oh-my-pi 的自主软件开发循环
 
-> [English](../README.md) | [架构文档](ARCHITECTURE.md) | [测试](TESTING.md) | [设计决策](DESIGN_DECISIONS.md) | [安装](INSTALL.md)
+> [English](../README.md) · [架构](ARCHITECTURE.md) · [测试](TESTING.md) · [设计决策](DESIGN_DECISIONS.md) · [安装](INSTALL.md) · [更新日志](../CHANGELOG.md)
 
 autodev 是一个 **meta-agent**：它不直接操作文件或调用 shell，而是通过 YAML 持久化状态机编排 LLM subagent 自主完成编码任务。
 
@@ -13,7 +13,7 @@ autodev 是一个 **meta-agent**：它不直接操作文件或调用 shell，而
 
 ```bash
 # 1. 安装（项目级）
-tar -xzf autodev-v7-offline.tar.gz -C .omp/
+tar -xzf autodev-v{VERSION}-offline.tar.gz -C .omp/
 
 # 2. 重启 omp 或重载扩展
 
