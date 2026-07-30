@@ -61,3 +61,7 @@ node tests/test-prompts.mjs                 # 提示词结构测试（毫秒级�
 node tests/test-prompts-consistency.mjs     # 提示词交叉一致性测试（毫秒级）
 # 行为测试在 eval cell 中运行（见 tests/prompt-behavior.mjs）
 ```
+
+## Git 约定
+- **禁止强制推送**（`git push --force`）。历史必须线性可追踪。
+- 所有远程分支冲突通过 rebase 或 merge 解决，不得覆盖远程历史。
