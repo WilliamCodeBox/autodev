@@ -2,7 +2,7 @@
 
 All notable changes to autodev are documented here. Version scheme: `VERSION` file at root, tarball name `autodev-v{VERSION}-offline.tar.gz`.
 
-## [7.0.0] - 2025-01
+## [1.0.0] - 2026-07-30
 
 ### Added
 - Core state machine (`autodev-state.mjs`) with YAML-persisted task/slice/gate lifecycle
