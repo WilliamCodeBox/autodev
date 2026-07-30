@@ -213,10 +213,6 @@ autodev 的可靠性取决于两层——状态机硬逻辑（确定性验证）
 
 ```
 src/
-  design/                    # 设计文档（推理 prompt + schema）
-    recon-synth.ts           # RECON-PLAN prompt + 维度 schema
-    tworound-gate.ts         # TwoRoundGate prompt + 门控 schema
-    autodev-state.ts         # 状态机 TS 包装（复用 .mjs 内核）
   commands/
     autodev.md               # /autodev 命令（主循环 prompt + 子命令分发）
   tools/autodev/

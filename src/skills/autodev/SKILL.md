@@ -70,8 +70,6 @@ Examples:
 `autodev(operation="hotl_steer", steer_kind="resume", scope="slice:S1", note="unblock and continue")`
 
 ## References in this extension
-- `src/design/recon-synth.ts` — RECON-PLAN prompt + schema builders (design-only, not in offline package).
-- `src/design/tworound-gate.ts` — TwoRoundGate prompt + schema builders (design-only).
 - `tools/autodev/lib/autodev-state.mjs` — state machine core (verified by `tests/test-state.mjs`); holds P0-7 mode helpers + P0-8 atomic write + P0-3 reconcile guard.
 - `tools/autodev/lib/hitl-gates.mjs` — HITL approval-point + adjudication logic (verified by `tests/test-hitl.mjs`).
 - `tools/autodev/lib/hotl-steer.mjs` — HOTL monitor/control + tool-layer steer absorption (verified by `tests/test-hotl.mjs`).
