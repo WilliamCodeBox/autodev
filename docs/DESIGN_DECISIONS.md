@@ -1,24 +1,14 @@
 # Key Design Decisions
 
-## Why dynamic (not hardcoded) reconnaissance dimensions
+Each architecture decision is recorded as an individual ADR (Architecture Decision Record) in [`docs/adr/`](adr/). Below is an index with one-line summaries.
 
-Dynamic decomposition adapts better to task variance than static templates. "Let the LLM decide what to investigate" is a proven PLAN-stage strategy. Reconnaissance dimensions are generated artifacts, auditable in `autodev.yaml`, not constants.
-
-## Why YAML instead of in-memory state
-
-Persistent state supports crash recovery, audit trails, and asynchronous collaboration (multiple people see the same YAML). Once the orchestration target shifts from "call stack / event stream" to "state machine", there must be a **queryable, assertable, recoverable** source of truth. YAML snapshots + run.json append-only logs provide both snapshot recovery and historical replay -- the same pattern as database WAL + checkpoint.
-
-## Why separate parent-agent and subagent tools
-
-The parent agent sees state operation tools (transition task, advance stage, gates), while subagents see file operation tools. This layering prevents a single LLM from operating both state and files at the same time, avoiding the confused deputy problem.
-
-## Why context budget is a hard tool-level gate, not model self-awareness
-
-Models won't self-reject. Only a tool can intercept at load time. `evaluateReadGate` is a pure function, testable -- it doesn't depend on the model's "judgment."
-
-## Why HITL/HOTL are not two separate codebases
-
-All three modes share the same core loop. Core logic (state machine transitions, gate advancement, replan) is tested once, and there's no risk of "auto fixed a bug but the hitl branch forgot it."
+| # | ADR | Summary |
+|---|-----|---------|
+| 1 | [`0001-动态侦察维度非硬编码模板.md`](adr/0001-动态侦察维度非硬编码模板.md) | 侦察维度由 LLM 在 RECON-PLAN 阶段动态生成，而非固定模板 |
+| 2 | [`0002-yaml-而非内存状态.md`](adr/0002-yaml-而非内存状态.md) | YAML 快照 + run.json 日志持久化状态，支持崩溃恢复、审计、异步协作 |
+| 3 | [`0003-分离-parent-agent-和-subagent-工具.md`](adr/0003-分离-parent-agent-和-subagent-工具.md) | 分层防止 confused deputy：parent 管流程，subagent 管文件 |
+| 4 | [`0004-上下文预算作为硬工具层拦截.md`](adr/0004-上下文预算作为硬工具层拦截.md) | 硬 gate 拦截超出预算的 read，不依赖 LLM 自我评估 |
+| 5 | [`0005-hitlhotl-共享同一核心循环.md`](adr/0005-hitlhotl-共享同一核心循环.md) | 三种模式共享同一核心循环；核心逻辑只测一次，不存在分叉遗忘 |
 
 ## Limitations
 

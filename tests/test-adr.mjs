@@ -50,11 +50,11 @@ function readFile(fp) {
 
   const c = readFile(r.path);
   ok('ADR-1 含 ADR-0001 标题行', c.includes('# ADR-0001:'));
-  ok('ADR-1 含 Date', c.includes('- **Date**:'));
-  ok('ADR-1 含 Status Accepted', c.includes('- **Status**: Accepted'));
-  ok('ADR-1 含 Decider autodev', c.includes('- **Decider**: autodev'));
-  ok('ADR-1 含 Origin DESIGN', c.includes('- **Origin**: DESIGN'));
-  ok('ADR-1 含 Slice S1', c.includes('- **Slice**: S1'));
+  ok('ADR-1 含 Date', c.includes('date: '));
+  ok('ADR-1 含 status accepted', c.includes('status: accepted'));
+  ok('ADR-1 含 decider autodev', c.includes('decider: autodev'));
+  ok('ADR-1 含 origin DESIGN', c.includes('origin: DESIGN'));
+  ok('ADR-1 含 slice S1', c.includes('slice: S1'));
   ok('ADR-1 含 Context 段', c.includes('## Context'));
   ok('ADR-1 含 Decision 段', c.includes('## Decision'));
   ok('ADR-1 含 Consequences 段', c.includes('## Consequences'));
@@ -148,12 +148,16 @@ function readFile(fp) {
   fs.rmSync(root, { recursive: true, force: true });
 }
 
-// 10) 无 autodev.yaml 时抛错
+// 10) 无 autodev.yaml 时 fallback 到目录扫描（自 ADR 场景）
 {
-  const root = mkdtempSync(path.join(DIR, 'adr-test-noinit-'));
-  let threw = false;
-  try { appendADR(root, { title: 'X', decision: 'Y' }); } catch (e) { threw = e.message.includes('no autodev.yaml'); }
-  ok('无 autodev.yaml 抛错', threw);
+  const root = mkdtempSync(path.join(DIR, 'adr-test-self-'));
+  const r = appendADR(root, { title: '无 yaml 自 ADR', decision: '目录扫描 fallback', context: '无需 autodev.yaml', consequences: ['自 ADR 可行'] });
+  ok('无 yaml 时写入成功', r.id === '0001' && fs.existsSync(r.path));
+  const c = fs.readFileSync(r.path, 'utf8');
+  ok('自 ADR markdown 格式正确', c.includes('# ADR-0001:') && c.includes('## Decision'));
+  // 验证没有 journal（无 autodev.yaml 时不写 journal）
+  const jp = path.join(root, '.omp/autodev/run.json');
+  ok('自 ADR 不写 journal', !fs.existsSync(jp));
   fs.rmSync(root, { recursive: true, force: true });
 }
 
@@ -169,8 +173,8 @@ function readFile(fp) {
     decider: 'human',
   });
   const c = readFile(r.path);
-  ok('Decider=human 渲染正确', c.includes('- **Decider**: human'));
-  ok('Origin=HITL 渲染正确', c.includes('- **Origin**: HITL'));
+  ok('Decider=human 渲染正确', c.includes('decider: human'));
+  ok('Origin=HITL 渲染正确', c.includes('origin: HITL'));
   fs.rmSync(root, { recursive: true, force: true });
 }
 
@@ -181,7 +185,7 @@ function readFile(fp) {
     title: 'Global decision', decision: 'Y', context: 'c', consequences: [],
   });
   const c = readFile(r.path);
-  ok('无 slice_id 时不渲染 Slice 行', !c.includes('- **Slice**:'));
+  ok('无 slice_id 时不渲染 slice 行', !/\bslice:/.test(c));
   fs.rmSync(root, { recursive: true, force: true });
 }
 
@@ -193,6 +197,118 @@ function readFile(fp) {
   const last = j.events[j.events.length - 1];
   ok('journal 记录 adr_append 事件', last && last.op === 'adr_append' && last.adr_id === '0001');
   fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 14) 自 ADR 空目录时从 id=1 开始
+{
+  const root = mkdtempSync(path.join(DIR, 'adr-test-self-empty-'));
+  const r = appendADR(root, { title: 'First self ADR', decision: 'A', context: 'c', consequences: [] });
+  ok('空目录首条 ADR id=0001', r.id === '0001');
+  // 写第二条验证 ID 递增
+  const r2 = appendADR(root, { title: 'Second self ADR', decision: 'B', context: 'c', consequences: [] });
+  ok('第二条 ADR id=0002', r2.id === '0002');
+  const files = fs.readdirSync(path.join(root, 'docs/adr')).filter(f => f.endsWith('.md'));
+  ok('docs/adr 含 2 个文件', files.length === 2);
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 15) 自 ADR 已有文件时取 max_id+1
+{
+  const root = mkdtempSync(path.join(DIR, 'adr-test-self-existing-'));
+  // 先手动创建 0003 和 0005 模拟非连续 ID
+  fs.mkdirSync(path.join(root, 'docs/adr'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs/adr', '0003-fake.md'), '# prev\n', 'utf8');
+  fs.writeFileSync(path.join(root, 'docs/adr', '0005-fake.md'), '# prev\n', 'utf8');
+  const r = appendADR(root, { title: 'After existing', decision: 'C', context: 'c', consequences: [] });
+  ok('已有文件时取 max_id+1=0006', r.id === '0006');
+  ok('新文件存在', fs.existsSync(r.path));
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 16) 自 ADR 混合 yaml 场景：有 autodev.yaml 时优先用 yaml 计数器
+{
+  const root = mkdtempSync(path.join(DIR, 'adr-test-mixed-'));
+  // 先创建 docs/adr/ 中的手动 ADR 文件
+  fs.mkdirSync(path.join(root, 'docs/adr'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs/adr', '9999-manual.md'), '# prev\n', 'utf8');
+  // 再 init autodev（adr.next_id 从 1 开始）
+  initAutodev(root, {
+    project: 'mixed', goal: 'test', slices: [],
+    hitl: { enabled: false, pending_gates: [], decisions: [] },
+    hotl: { mode: 'autonomous', steers: [], loop_state: 'running' },
+  });
+  // appendADR 应使用 autodev.yaml 的 next_id（=1），而非目录扫描的 max_id（=9999）
+  const r = appendADR(root, { title: 'YAML wins', decision: 'D', context: 'c', consequences: [] });
+  ok('有 yaml 时 id=0001 而非 9999', r.id === '0001');
+  const doc = loadAutodev(root);
+  ok('yaml 计数器自增到 2', doc.adr?.next_id === 2);
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 17) YAML frontmatter 结构正确：以 --- 开头，有 --- 分隔线
+{
+  const root = makeRoot();
+  const r = appendADR(root, { title: 'Frontmatter test', decision: 'X', context: 'c', consequences: ['ok'] });
+  const c = readFile(r.path);
+  ok('frontmatter 以 --- 开头', c.startsWith('---\n'));
+  ok('frontmatter 有闭合 ---', /^---\n[\s\S]*?\n---\n\n/.test(c));
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 18) YAML frontmatter 可解析为合法 YAML，字段值正确
+{
+  const root = makeRoot();
+  const r = appendADR(root, {
+    title: 'YAML parse test', decision: 'use YAML', context: 'machine readability',
+    consequences: ['parseable'], origin: 'DESIGN', slice_id: 'S2', decider: 'human',
+  });
+  const c = readFile(r.path);
+  // 提取 frontmatter 块
+  const m = c.match(/^---\n([\s\S]*?)\n---/);
+  ok('frontmatter 块可提取', m && m[1].length > 0);
+  const lines = m[1].split('\n');
+  const dict = {};
+  for (const l of lines) { const kv = l.match(/^(\w+): (.+)$/); if (kv) dict[kv[1]] = kv[2]; }
+  ok('frontmatter date 存在', dict.date && dict.date.length === 10);
+  ok('frontmatter status=accepted', dict.status === 'accepted');
+  ok('frontmatter decider=human', dict.decider === 'human');
+  ok('frontmatter origin=DESIGN', dict.origin === 'DESIGN');
+  ok('frontmatter slice=S2', dict.slice === 'S2');
+  // body 不含旧格式
+  ok('body 无旧格式 - ** 元数据', !/\n- \*\*/.test(c));
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 19) 无 slice_id 时 frontmatter 无 slice 行
+{
+  const root = makeRoot();
+  const r = appendADR(root, { title: 'No slice', decision: 'Y', context: 'c', consequences: [] });
+  const c = readFile(r.path);
+  const m = c.match(/^---\n([\s\S]*?)\n---/);
+  ok('frontmatter 块可提取', m && m[1].length > 0);
+  ok('frontmatter 无 slice 行', !m[1].includes('slice:'));
+  fs.rmSync(root, { recursive: true, force: true });
+}
+
+// 20) 消费项目场景 frontmatter 与自 ADR 格式一致
+{
+  // 消费项目场景（有 autodev.yaml）
+  const root1 = makeRoot();
+  const r1 = appendADR(root1, { title: 'Consume', decision: 'A', context: 'c', consequences: [], slice_id: 'S1' });
+  // 自 ADR 场景（无 autodev.yaml）
+  const root2 = mkdtempSync(path.join(DIR, 'adr-test-format-eq-'));
+  const r2 = appendADR(root2, { title: 'Self', decision: 'B', context: 'c', consequences: [], slice_id: 'S1' });
+  // 提取 frontmatter 比较
+  const c1 = readFile(r1.path);
+  const c2 = readFile(r2.path);
+  const fm1 = c1.match(/^---\n([\s\S]*?)\n---/)[1];
+  const fm2 = c2.match(/^---\n([\s\S]*?)\n---/)[1];
+  // 只比较结构（日期可能不同，忽略 date 行）
+  const lines1 = fm1.split('\n').filter(l => !l.startsWith('date:')).sort();
+  const lines2 = fm2.split('\n').filter(l => !l.startsWith('date:')).sort();
+  ok('两种场景 frontmatter 结构一致（忽略 date）', lines1.every((v,i) => v === lines2[i]));
+  fs.rmSync(root1, { recursive: true, force: true });
+  fs.rmSync(root2, { recursive: true, force: true });
 }
 
 console.log(`\nALL ${passed} CHECKS PASSED`);

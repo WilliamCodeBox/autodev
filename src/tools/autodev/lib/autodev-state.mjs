@@ -594,30 +594,57 @@ function titleToSlug(title) {
   return slug || 'untitled';
 }
 
+// 扫描 docs/adr/ 目录下已有文件，取 max id。无文件时返回 0。
+function scanMaxAdrId(root) {
+  const dir = adrDir(root);
+  if (!fs.existsSync(dir)) return 0;
+  const files = fs.readdirSync(dir).filter(f => /^\d{4}-.+\.md$/.test(f));
+  if (files.length === 0) return 0;
+  const ids = files.map(f => parseInt(f.slice(0, 4), 10));
+  return Math.max(...ids);
+}
+
 // 追加一条架构决策记录。
-// 只写 docs/adr/{id}-{slug}.md，autodev.yaml 仅维护 adr.next_id 计数器。
+// 有 autodev.yaml 时（消费项目场景）用 yaml 中的 adr.next_id 计数器，
+// 无 autodev.yaml 时（自 ADR 场景）扫描 docs/adr/ 目录取 max_id + 1。
+// 不维护 YAML 索引（目录扫描 + frontmatter 即时派生）。
+// 不原子双写（单文件写入，幂等）。
 // 返回 { path, id, slug }。
 export function appendADR(root = '.', { title, context, decision, consequences, origin, slice_id, decider, supersedes } = {}) {
   if (!title || !decision) throw new Error('appendADR requires title and decision');
 
   const doc = loadAutodev(root);
-  if (!doc) throw new Error('no autodev.yaml; run init first');
-
-  doc.adr = doc.adr || { next_id: 1 };
-  const id = String(doc.adr.next_id).padStart(4, '0');
+  let id, hasYaml;
+  if (doc) {
+    // 消费项目场景：autodev.yaml 提供计数器 + journal
+    doc.adr = doc.adr || { next_id: 1 };
+    id = doc.adr.next_id;
+    hasYaml = true;
+  } else {
+    // 自 ADR 场景：目录扫描取 max_id + 1，无 journal
+    const maxId = scanMaxAdrId(root);
+    id = maxId + 1;
+    hasYaml = false;
+  }
+  const padded = String(id).padStart(4, '0');
   const slug = titleToSlug(title);
-  const fp = adrPath(root, id, slug);
+  const fp = adrPath(root, padded, slug);
 
   const consequencesBody = Array.isArray(consequences) ? consequences.map(c => `- ${c}`).join('\n') : (consequences || '- (待补充)');
 
-  const parts = [
-    `# ADR-${id}: ${title}`,
+  const frontLines = [
+    '---',
+    `date: ${new Date().toISOString().slice(0, 10)}`,
+    'status: accepted',
+    `decider: ${decider || 'autodev'}`,
+    `origin: ${origin || 'manual'}`,
+    slice_id ? `slice: ${slice_id}` : null,
+    '---',
+  ].filter(Boolean);
+
+  const bodyLines = [
     '',
-    `- **Date**: ${new Date().toISOString().slice(0, 10)}`,
-    `- **Status**: Accepted`,
-    `- **Decider**: ${decider || 'autodev'}`,
-    `- **Origin**: ${origin || 'manual'}`,
-    slice_id ? `- **Slice**: ${slice_id}` : null,
+    `# ADR-${padded}: ${title}`,
     '',
     '## Context',
     '',
@@ -633,17 +660,20 @@ export function appendADR(root = '.', { title, context, decision, consequences, 
     '',
     supersedes ? `## Links\n\n- Supersedes: ADR-${supersedes}` : null,
     '',
-  ].filter(Boolean).join('\n');
+  ].filter(l => l !== null);
+
+  const parts = frontLines.concat(bodyLines).join('\n');
 
   fs.mkdirSync(adrDir(root), { recursive: true });
   fs.writeFileSync(fp, parts, 'utf8');
 
-  doc.adr.next_id += 1;
-  saveAutodev(root, doc);
+  if (hasYaml) {
+    doc.adr.next_id += 1;
+    saveAutodev(root, doc);
+    appendJournal(root, { op: 'adr_append', adr_id: padded, slug, title: title.slice(0, 60) });
+  }
 
-  appendJournal(root, { op: 'adr_append', adr_id: id, slug, title: title.slice(0, 60) });
-
-  return { path: fp, id, slug };
+  return { path: fp, id: padded, slug };
 }
 
 // 真正执行 verify 命令（machine 类）并据退出码判定 —— 不采信 subagent 自报。
