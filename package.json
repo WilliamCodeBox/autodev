@@ -1,8 +1,0 @@
-{
-  "name": "autodev-extension",
-  "version": "0.1.0",
-  "description": "oh-my-pi extension: autodev keyword — autonomous goal completion with LLM-driven recon + 2-round gating + YAML state",
-  "type": "module",
-  "private": true,
-  "dependencies": {}
-}

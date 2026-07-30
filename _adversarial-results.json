@@ -1,0 +1,491 @@
+{
+  "summary": {
+    "total": 63,
+    "survived": 8,
+    "refuted": 55
+  },
+  "by_severity": {
+    "error": 6,
+    "warn": 2,
+    "info": 0
+  },
+  "per_dimension": {
+    "state-machine": {
+      "total": 16,
+      "survived": 0,
+      "refuted": 16
+    },
+    "hitl": {
+      "total": 10,
+      "survived": 3,
+      "refuted": 7
+    },
+    "hotl": {
+      "total": 8,
+      "survived": 2,
+      "refuted": 6
+    },
+    "yaml-persistence": {
+      "total": 3,
+      "survived": 0,
+      "refuted": 3
+    },
+    "context-budget": {
+      "total": 4,
+      "survived": 0,
+      "refuted": 4
+    },
+    "journal-artifacts": {
+      "total": 3,
+      "survived": 0,
+      "refuted": 3
+    },
+    "recon-scoring": {
+      "total": 6,
+      "survived": 0,
+      "refuted": 6
+    },
+    "scenario-coverage": {
+      "total": 13,
+      "survived": 3,
+      "refuted": 10
+    }
+  },
+  "survivors": [
+    {
+      "dimension": "hitl",
+      "severity": "error",
+      "file": "tests/test-p1.mjs:109,119",
+      "msg": "动态 import 路径错误，P1-4 和 P1-5 测试静默跳过"
+    },
+    {
+      "dimension": "hitl",
+      "severity": "error",
+      "file": "tests/test-p1.mjs:96-123",
+      "msg": "override 后 reconcileSliceStage/checkFinalGate 断言因 import 断裂从未执行"
+    },
+    {
+      "dimension": "hitl",
+      "severity": "error",
+      "file": "tests/test-hitl.mjs",
+      "msg": "缺少 hitlRequest 边界测试：无效 gate 名、HITL 未启用、已有 pending gate"
+    },
+    {
+      "dimension": "hotl",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/hotl-steer.mjs",
+      "msg": "hotlInit 不调用 clearHitlResidual，per-slice 残留未清"
+    },
+    {
+      "dimension": "hotl",
+      "severity": "warn",
+      "file": "src/tools/autodev/index.ts",
+      "msg": "replan 的 convergeToPaused 在 absorbSteer 消费 resume steer 后仍触发"
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "error",
+      "file": "tests/run-integration.mjs",
+      "msg": "--omp 标志是死代码从不解析"
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "error",
+      "file": "tests/integration/scenarios/06-e2e-omp.mjs",
+      "msg": "e2e-omp SKIP 逻辑虚报通过使 pass 计数虚假膨胀"
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/runner.mjs",
+      "msg": "runner.mjs 无场景匹配时返回 0/0 退出码 0 误以为全通过"
+    }
+  ],
+  "refuted": [
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "blocked→todo 合法迁移未测",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "todo→blocked 合法迁移未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "todo→done 直跳合法迁移未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "replan maxReplans=0 边界未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "replan 默认参数未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "transitionTask 非法 taskId 未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "canTransitionTask undefined/null from/to 未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "error",
+      "file": "tests/test-state.mjs",
+      "msg": "reconcileSliceStage 未测 queued/planning 免降级路径",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "Self-transition 非法迁移未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "blocked→doing/done 非法迁移未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "checkSliceGate 空 tasks/AC 边缘未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "checkSliceGate 全 blocked tasks 未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "replan 已 paused slice 上重复调用未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "checkFinalGate 空 slices/空 final_standard 未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "SLICE_STAGES 仅测含 paused 未验证全部8阶段",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "state-machine",
+      "severity": "warn",
+      "file": "tests/test-state.mjs",
+      "msg": "validateGateInvariants 无 gate 对象/undefined mandatory 未测",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hitl",
+      "severity": "error",
+      "file": "tests/test-hitl.mjs",
+      "msg": "缺少 hitlRespond decision:modify 正面测试",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hitl",
+      "severity": "error",
+      "file": "tests/test-hitl.mjs",
+      "msg": "缺少 sliceHasPendingGate 边界 case",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "hitl",
+      "severity": "warn",
+      "file": "tests/test-hitl.mjs",
+      "msg": "缺少 passive 模式的超时测试",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hitl",
+      "severity": "warn",
+      "file": "tests/test-hitl.mjs",
+      "msg": "advisory 模式下未超时 gate 不应自动放行",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hitl",
+      "severity": "warn",
+      "file": "tests/test-p1.mjs:86-93",
+      "msg": "HIGH_SENSITIVITY 仅测试 numerical_risk 缺少 mpi_boundary",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hitl",
+      "severity": "warn",
+      "file": "tests/test-hitl.mjs",
+      "msg": "gateEnabled 仅测试 final_acceptance=false 缺少其他门默认状态",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hitl",
+      "severity": "warn",
+      "file": "tests/test-p1.mjs:47-50",
+      "msg": "classifyMachineGate 缺少 exitCode===0 的边界",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hotl",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/hotl-steer.mjs",
+      "msg": "detectSteerConflicts sameScope 引用 s.slice_id 字段不存在→死分支",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hotl",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/autodev-state.mjs",
+      "msg": "cancelled 不在 SLICE_STAGES 枚举中但 absorbSteer 设此值",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "hotl",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/hotl-steer.mjs",
+      "msg": "convergeToPaused 中 notifyHotl 调一次 saveAutodev 后重复保存",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "hotl",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/hotl-steer.mjs",
+      "msg": "hotlResume 不调 notifyHotl 与 hotlPause/hotlCancel 不一致",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "hotl",
+      "severity": "warn",
+      "file": "tests/integration/scenarios/05-hotl-steer.mjs",
+      "msg": "集成场景 05 只覆盖 steering 表面未测 absorbSteer/convergeToPaused/detectSteerConflicts",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "hotl",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/hotl-steer.mjs",
+      "msg": "hotlCancel 后 pending steers 仍显示为待处理",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "yaml-persistence",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/autodev-state.mjs",
+      "msg": "loadAutodev/loadSlice throws YAMLException on corrupted file",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "yaml-persistence",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/autodev-state.mjs:117",
+      "msg": "Partial/mid-write file returns scalar string causing downstream TypeError",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "yaml-persistence",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/autodev-state.mjs:120-125",
+      "msg": "atomicWriteFile 在 Windows rename 失败时遗留 .tmp 文件",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "context-budget",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/autodev-state.mjs",
+      "msg": "estimateTokens CJK 正则未覆盖全角标点",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "context-budget",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/autodev-state.mjs",
+      "msg": "ContextLedger.remove 不清除 pinned 集合",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "context-budget",
+      "severity": "info",
+      "file": "tests/integration/scenarios/07-context-budget.mjs",
+      "msg": "测试标签声称 amber 但实际为 red",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "context-budget",
+      "severity": "info",
+      "file": "tests/integration/scenarios/07-context-budget.mjs",
+      "msg": "英文 token 断言比较了 < 20 而非 < 字符串长度",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "journal-artifacts",
+      "severity": "error",
+      "file": "tests/test-journal.mjs",
+      "msg": "命令不存在测试断言检查了错误字段（res.status 而非 res.exit）",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "journal-artifacts",
+      "severity": "warn",
+      "file": "tests/integration/review.mjs",
+      "msg": "gate_history 字段被读取但全代码库无写入点",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "journal-artifacts",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/autodev-state.mjs",
+      "msg": "appendJournal 未使用原子写",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "recon-scoring",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/recon-score.mjs:18",
+      "msg": "hasFileLine 正则匹配任意 colon+digits 作为 file:line 证据导致假阳性",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "recon-scoring",
+      "severity": "error",
+      "file": "src/tools/autodev/lib/recon-score.mjs:23",
+      "msg": "hasRiskSignal 匹配 block 作为子串在 unblocked/blockchain 中导致假阳性",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "recon-scoring",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/recon-score.mjs:43-46",
+      "msg": "风险路径错误地将 missing evidence_status 提升为 partial",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "recon-scoring",
+      "severity": "warn",
+      "file": "src/tools/autodev/lib/recon-score.mjs:65-66",
+      "msg": "classifyReconConfidence 对无 id 字段的维度输出 null",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "recon-scoring",
+      "severity": "info",
+      "file": "src/tools/autodev/lib/recon-score.mjs:30",
+      "msg": "scoreReconDimension status 大小写敏感",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "recon-scoring",
+      "severity": "info",
+      "file": "src/tools/autodev/lib/recon-score.mjs:73-74",
+      "msg": "confidenceDelta 对 NaN/Infinity 输入传播而非返回 0",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "error",
+      "file": "tests/integration/review.mjs",
+      "msg": "review.mjs 引用 omp -p ScenarioCtx 在纯 node 测试进程中没有此上下文",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "error",
+      "file": "tests/integration/scenarios/05-hotl-steer.mjs",
+      "msg": "05-hotl-steer 完全缺少 P1-7/P1-9 steer 冲突检测",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "error",
+      "file": "tests/integration/scenarios/03-hitl-mode.mjs",
+      "msg": "03-hitl-mode 仅测试 approve 缺少 override/advisory/modify/reject 四个负路径",
+      "refuteCount": 3
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "error",
+      "file": "tests/integration/scenarios/03-hitl-mode.mjs",
+      "msg": "缺少 HIGH_SENSITIVITY 门 P1-2 覆盖",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/scenarios",
+      "msg": "所有集成场景均未覆盖 runVerify/journal/artifact/handoff/resumeState",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/scenarios",
+      "msg": "缺少 recon-score.mjs 集成测试",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/scenarios",
+      "msg": "hotlConfig/hitlStatus/notifyHotl 未在任何集成场景中测试",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/scenarios/05-hotl-steer.mjs",
+      "msg": "05-hotl-steer 与 test-hotl.mjs 高度重叠",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/scenarios/03-hitl-mode.mjs",
+      "msg": "03-hitl-mode 与 test-hitl.mjs 高度重叠但不如后者完备",
+      "refuteCount": 2
+    },
+    {
+      "dimension": "scenario-coverage",
+      "severity": "warn",
+      "file": "tests/integration/runner.mjs",
+      "msg": "runner.mjs --only 做子串匹配而非精确匹配",
+      "refuteCount": 3
+    }
+  ]
+}
