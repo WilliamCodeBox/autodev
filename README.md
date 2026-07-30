@@ -224,14 +224,18 @@ src/
       recon-score.mjs        # recon 维度置信度打分
       js-yaml.mjs            # YAML 序列化
 tests/
-  test-state.mjs             # 状态机单元测试
-  test-hitl.mjs              # HITL 测试
-  test-hotl.mjs              # HOTL 测试
-  test-integration.mjs       # 集成测试（7 场景覆盖矩阵）
-  run-integration.mjs        # 测试运行入口
+  test-state.mjs               # 状态机单元测试
+  test-hitl.mjs                # HITL 测试
+  test-hotl.mjs                # HOTL 测试
+  test-integration.mjs         # 集成测试
+  test-commands.mjs            # 命令表面一致性测试
+  test-prompts.mjs             # 提示词结构完整性测试（110 项）
+  test-prompts-consistency.mjs # 提示词交叉一致性测试（29 项）
+  prompt-behavior.mjs          # 提示词行为回归（LLM 契约遵守，15 项）
+  run-integration.mjs          # 测试运行入口
   integration/
-    runner.mjs               # 集成测试运行器
-    review.mjs               # 对抗式审查运行器
-    scenarios/               # 7 个场景的测试定义
-    lib/                     # 集成测试工具函数
+    runner.mjs                 # 集成测试运行器
+    review.mjs                 # 对抗式审查运行器
+    scenarios/                 # 8 个场景的测试定义
+    lib/                       # 集成测试工具函数
 ```

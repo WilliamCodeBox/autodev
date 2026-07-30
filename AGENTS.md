@@ -36,10 +36,10 @@ autodev 的可靠性取决于两层：状态机硬逻辑 + LLM 对提示词的�
 
 **为什么用 LLM 审 LLM**：提示词约束本质上是一个语义问题——"模型是否理解并执行了给定流程"。最经济的判断方式是让另一个模型用 adversarial 视角审查产出，找出"该有却没有"的阶段证据。
 
-## 7 场景覆盖矩阵
+## 8 场景覆盖矩阵
 
 | 场景 | 轴 | 覆盖 |
-|------|----|------|
+|---|---|---|
 | happy-path | 代码 | init→slice→task→reconcile→final gate 全闭环，recon 保留、父 stage 同步 |
 | blocked-replan | 代码 | doing→blocked→replan(attempts++)→超限 paused，磁盘持久化 |
 | hitl-mode | 代码 | establishMode 三层互斥、pending gate 硬阻塞(hitl.pending_gates)、approve 解除 |
@@ -47,6 +47,7 @@ autodev 的可靠性取决于两层：状态机硬逻辑 + LLM 对提示词的�
 | hotl-steer | 代码 | steer→poll→pause→resume→cancel，loop_state 派生 |
 | e2e-omp | 提示词 | omp -p 跑 autodev（无 omp 自动 skip） |
 | context-budget | 代码 | 三态 zone、readGate 硬拒绝、LRU 驱逐 + pinned 保护 |
+| prompt-regression | 提示词 | LLM 对 prompt 契约的遵守：双通道、mandatory 不变式、schema 输出（eval cell） |
 
 ## 运行
 
@@ -56,4 +57,7 @@ node tests/run-integration.mjs --omp        # 轴一 + 轴二
 node tests/run-integration.mjs --only=X     # 过滤
 node tests/run-integration.mjs --list       # 列场景
 node tests/test-state.mjs                   # 已有单元测试
+node tests/test-prompts.mjs                 # 提示词结构测试（毫秒级）
+node tests/test-prompts-consistency.mjs     # 提示词交叉一致性测试（毫秒级）
+# 行为测试在 eval cell 中运行（见 tests/prompt-behavior.mjs）
 ```
