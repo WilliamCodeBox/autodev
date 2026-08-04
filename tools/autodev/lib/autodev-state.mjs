@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { load as yamlParse, dump as yamlStringify } from './js-yaml.mjs';
 
 export const TASK_STATUS = ['todo', 'doing', 'blocked', 'done'];
-export const SLICE_STAGES = ['queued', 'planning', 'executing', 'verifying', 'done', 'blocked', 'paused', 'awaiting_human'];
+export const SLICE_STAGES = ['queued', 'planning', 'executing', 'verifying', 'done', 'blocked', 'paused', 'awaiting_human', 'cancelled'];
 
 // 合法 task 迁移边。done 为终态——禁止回退到 todo/doing，但允许重开为 blocked
 // （已完成任务后续发现阻塞）。设计 §5：todo→doing→done/blocked；blocked 经父重规划回到 todo。
@@ -211,6 +211,10 @@ export function checkSliceGate(slice) {
 //   有 blocked task            → blocked
 //   其余（已离开 planning/queued）→ verifying（门未过，进 fix loop）
 export function reconcileSliceStage(slice) {
+  // 人类取消是 slice 终态：机器不得将其静默翻回 done（BUG1d：撤销取消）。
+  if (slice.stage === 'cancelled') {
+    return { pass: false, missing: ['CANCELLED_TERMINAL'] };
+  }
   // P0-3 双向守卫：存在 waiting 的 HITL pending gate（slice.awaiting_gate）时，
   // 既不下调、也不上调到 done——保留 awaiting_human 等人类裁决。
   if (slice.awaiting_gate) {
@@ -256,7 +260,7 @@ export function checkFinalGate(autodev) {
     };
   }
   const missingSlices = slices
-    .filter((s) => s.stage !== 'done')
+    .filter((s) => s.stage !== 'done' && s.stage !== 'cancelled')
     .map((s) => `slice ${s.id}:${s.stage}`);
   const missingAcs = standard.filter((a) => a.status !== 'pass').map((a) => `gate ${a.id}:${a.status}`);
   return {
@@ -604,76 +608,122 @@ function scanMaxAdrId(root) {
   return Math.max(...ids);
 }
 
+// 全局写锁：序列化 appendADR 关键区，杜绝并发下 next_id 的 RMW 丢更新与 id 撞车。
+// 用 O_EXCL 创建锁文件（原子），自旋等待；持锁期间完成 ADR 写入与 yaml 计数器落盘，
+// 释放锁前轮询确认 yaml 已就绪（应对部分环境下 rename 异步/被测试 shim 延迟的窗口）。
+function withAdrWriteLock(root, fn) {
+  const lockPath = path.join(adrDir(root), '.adr-write.lock');
+  while (true) {
+    try {
+      fs.openSync(lockPath, 'wx');
+      break;
+    } catch {
+      const end = Date.now() + 5;
+      while (Date.now() < end) {}
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    try { fs.unlinkSync(lockPath); } catch {}
+  }
+}
+
+// 某 padded 槽是否被占用：目录里存在 `${padded}-*.md`（任意 slug 都算占槽）。
+// 用于撞 id 规避：磁盘已存在同 id 的 ADR（竞态残留/手动文件）时，appendADR 应递增到空闲槽。
+function paddedSlotTaken(root, padded) {
+  const dir = adrDir(root);
+  if (!fs.existsSync(dir)) return false;
+  return fs.readdirSync(dir).some((f) => f.startsWith(padded + '-') || f === padded + '.md');
+}
+
 // 追加一条架构决策记录。
 // 有 autodev.yaml 时（消费项目场景）用 yaml 中的 adr.next_id 计数器，
 // 无 autodev.yaml 时（自 ADR 场景）扫描 docs/adr/ 目录取 max_id + 1。
 // 不维护 YAML 索引（目录扫描 + frontmatter 即时派生）。
-// 不原子双写（单文件写入，幂等）。
+// 全局写锁保证并发安全：id 唯一 + next_id 不丢更新（BUG2：RECON 并行 fan-out 撞 id）。
 // 返回 { path, id, slug }。
 export function appendADR(root = '.', { title, context, decision, consequences, origin, slice_id, decider, supersedes } = {}) {
   if (!title || !decision) throw new Error('appendADR requires title and decision');
 
-  const doc = loadAutodev(root);
-  let id, hasYaml;
-  if (doc) {
-    // 消费项目场景：autodev.yaml 提供计数器 + journal
-    doc.adr = doc.adr || { next_id: 1 };
-    id = doc.adr.next_id;
-    hasYaml = true;
-  } else {
-    // 自 ADR 场景：目录扫描取 max_id + 1，无 journal
-    const maxId = scanMaxAdrId(root);
-    id = maxId + 1;
-    hasYaml = false;
-  }
-  const padded = String(id).padStart(4, '0');
-  const slug = titleToSlug(title);
-  const fp = adrPath(root, padded, slug);
-
-  const consequencesBody = Array.isArray(consequences) ? consequences.map(c => `- ${c}`).join('\n') : (consequences || '- (待补充)');
-
-  const frontLines = [
-    '---',
-    `date: ${new Date().toISOString().slice(0, 10)}`,
-    'status: accepted',
-    `decider: ${decider || 'autodev'}`,
-    `origin: ${origin || 'manual'}`,
-    slice_id ? `slice: ${slice_id}` : null,
-    '---',
-  ].filter(Boolean);
-
-  const bodyLines = [
-    '',
-    `# ADR-${padded}: ${title}`,
-    '',
-    '## Context',
-    '',
-    context || '(待补充)',
-    '',
-    '## Decision',
-    '',
-    decision,
-    '',
-    '## Consequences',
-    '',
-    consequencesBody,
-    '',
-    supersedes ? `## Links\n\n- Supersedes: ADR-${supersedes}` : null,
-    '',
-  ].filter(l => l !== null);
-
-  const parts = frontLines.concat(bodyLines).join('\n');
-
   fs.mkdirSync(adrDir(root), { recursive: true });
-  fs.writeFileSync(fp, parts, 'utf8');
 
-  if (hasYaml) {
-    doc.adr.next_id += 1;
-    saveAutodev(root, doc);
-    appendJournal(root, { op: 'adr_append', adr_id: padded, slug, title: title.slice(0, 60) });
-  }
+  return withAdrWriteLock(root, () => {
+    const doc = loadAutodev(root);
+    const hasYaml = !!doc;
+    if (doc) {
+      // 消费项目场景：autodev.yaml 提供计数器 + journal
+      doc.adr = doc.adr || { next_id: 1 };
+    }
 
-  return { path: fp, id: padded, slug };
+    // id 起点：有 yaml 用计数器（语义约束：不跟随目录里的手动 ADR，见 test-adr mixed）；
+    // 无 yaml 用目录扫描 max+1（自 ADR 场景）。
+    let id = hasYaml ? (doc.adr.next_id || 1) : scanMaxAdrId(root) + 1;
+    // 撞 id 规避：若起点 id 对应槽已被占用（竞态残留/手动文件），递增到首个空闲槽。
+    // BUG2a：磁盘已有 0001-* 残留文件时，不应复用 0001。
+    let padded = String(id).padStart(4, '0');
+    while (paddedSlotTaken(root, padded)) {
+      id += 1;
+      padded = String(id).padStart(4, '0');
+    }
+
+    const slug = titleToSlug(title);
+    const fp = adrPath(root, padded, slug);
+
+    const consequencesBody = Array.isArray(consequences) ? consequences.map(c => `- ${c}`).join('\n') : (consequences || '- (待补充)');
+
+    const frontLines = [
+      '---',
+      `date: ${new Date().toISOString().slice(0, 10)}`,
+      'status: accepted',
+      `decider: ${decider || 'autodev'}`,
+      `origin: ${origin || 'manual'}`,
+      slice_id ? `slice: ${slice_id}` : null,
+      '---',
+    ].filter(Boolean);
+
+    const bodyLines = [
+      '',
+      `# ADR-${padded}: ${title}`,
+      '',
+      '## Context',
+      '',
+      context || '(待补充)',
+      '',
+      '## Decision',
+      '',
+      decision,
+      '',
+      '## Consequences',
+      '',
+      consequencesBody,
+      '',
+      supersedes ? `## Links\n\n- Supersedes: ADR-${supersedes}` : null,
+      '',
+    ].filter(l => l !== null);
+
+    const parts = frontLines.concat(bodyLines).join('\n');
+
+    fs.writeFileSync(fp, parts, 'utf8');
+
+    if (hasYaml) {
+      doc.adr.next_id = id + 1;
+      saveAutodev(root, doc);
+      appendJournal(root, { op: 'adr_append', adr_id: padded, slug, title: title.slice(0, 60) });
+      // 确保 yaml 真正落盘后再释放锁（应对 rename 异步/被测试 shim 延迟的窗口）：
+      // 轮询至读到期望的 next_id，避免下一个持锁进程读到旧计数器而重复分配。
+      const want = doc.adr.next_id;
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        const reloaded = loadAutodev(root);
+        if (reloaded?.adr?.next_id === want) break;
+        const spin = Date.now() + 2;
+        while (Date.now() < spin) {}
+      }
+    }
+
+    return { path: fp, id: padded, slug };
+  });
 }
 
 // 真正执行 verify 命令（machine 类）并据退出码判定 —— 不采信 subagent 自报。
@@ -716,6 +766,7 @@ export function runVerify(root = '.', opts = {}) {
   const art = writeArtifact(root, artName, body);
   if (entry && kind === 'machine') {
     entry.status = vstatus;
+    entry.verified_at = Date.now();
     if (source === 'final_standard') saveAutodev(root, doc);
     else if (slice) saveSliceAndSyncParent(root, slice);
   }

@@ -6,11 +6,11 @@ import path from 'node:path';
 import {
   initAutodev, loadAutodev, loadSlice, saveSlice,
   establishMode, isHotlActive, isPaused, isWaiting, saveAutodev,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 import {
   hotlInit, hotlSteer, absorbSteer, convergeToPaused,
   hotlPause, hotlResume, hotlCancel, hotlDashboard, hotlPoll,
-} from '../src/tools/autodev/lib/hotl-steer.mjs';
+} from '../tools/autodev/lib/hotl-steer.mjs';
 
 let pass = 0, fail = 0;
 function assert(cond, msg) {

@@ -79,7 +79,7 @@ Agent 可直接通过 `eval` 调用 `appendADR()` 写入，或手动构造 markd
 
 ```js
 // 在 eval 中调用 appendADR（推荐）
-import { appendADR } from '../src/tools/autodev/lib/autodev-state.mjs';
+import { appendADR } from '../tools/autodev/lib/autodev-state.mjs';
 const r = appendADR('.', {
   title: 'ADR 标题（简短概括决策）',
   context: '决策背景和上下文',

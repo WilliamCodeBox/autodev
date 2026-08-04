@@ -7,7 +7,7 @@ import {
   transitionTask, checkSliceGate, replan, checkFinalGate, buildFinalStandard,
   TASK_STATUS, SLICE_STAGES, saveAutodev, saveSlice, loadAutodev, loadSlice,
   saveSliceAndSyncParent, reconcileSliceStage, validateGateInvariants, canTransitionTask,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 
 let passed = 0;
 function ok(name, cond) {

@@ -16,8 +16,8 @@ const zod = {
 };
 const pi = { zod };
 
-const state = await import('../src/tools/autodev/lib/autodev-state.mjs');
-const factory = (await import('../src/tools/autodev/index.ts')).default;
+const state = await import('../tools/autodev/lib/autodev-state.mjs');
+const factory = (await import('../tools/autodev/index.ts')).default;
 const tool = factory(pi);
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'autodev-glue-'));

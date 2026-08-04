@@ -6,8 +6,8 @@ import path from 'node:path';
 import {
   initAutodev, loadAutodev, loadSlice, saveSlice, saveAutodev,
   reconcileSliceStage, sliceHasPendingGate, establishMode,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
-import { hitlRequest, hitlRespond, hitlStatus, hitlConfig } from '../src/tools/autodev/lib/hitl-gates.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
+import { hitlRequest, hitlRespond, hitlStatus, hitlConfig } from '../tools/autodev/lib/hitl-gates.mjs';
 
 let pass = 0, fail = 0;
 function assert(cond, msg) {

@@ -7,7 +7,7 @@ import path from 'node:path';
 import {
   estimateTokens, resolveModelMax, checkBudget, evaluateReadGate,
   ContextLedger, getContextBudget, writeHandoff, renderHandoff,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 
 let pass = 0;
 function ok(name, cond) {

@@ -52,11 +52,31 @@ autodev 支持两种模式入口与一个**跨模式控制面**（5 个动词共
 - **workflow 原语**（`workflow` 关键词）：写确定性扇出脚本，用 `agent()/parallel()` 派生上下文隔离 subagent。
 - **orchestrate 原语**：按阶段派发 task-tool subagent，阶段间上下文隔离、每阶段自带验收。
 
-## Subagent 双通道契约（local://）
-所有 subagent 遵循同一契约（详见设计文档 §9）：把**全部重产物**写到 `local://{role}-{slug}.md`，返回值**只能是轻量 JSON**——
-`{ "status": "success|partial|blocked", "ref": "local://...md", "summary": "1~3 句结论", "findings": [...], "next_action_or_blocker": "..." }`。
-**禁止**在返回值里塞原始数据或完整文件内容。父 agent 默认只消费 `summary + ref`，仅在需验证/决策时才 `read local://...md`。
-关键产物同时持久化到 `.omp/autodev/artifacts/`，避免 compact/handoff 后引用失效。
+## Subagent 派发规则（fail-loud）
+autodev 使用三个命名 agent（定义在 `agents/`，由 omp 的 frontmatter 强制工具白名单+输出格式）：
+
+| Agent | 覆盖阶段 | 工具 | 可 spawn |
+|-------|---------|------|---------|
+| `autodev-scout` | ① RECON-PLAN + ② RECON | 只读 + `autodev`(write_local) | — |
+| `autodev-gatekeeper` | ③ PLAN（TwoRoundGate: R1 draft + R2 N isolated auditors） | 只读 + `autodev`(写gate) | `autodev-scout` |
+| `autodev-implementer` | ④ SLICE EXECUTE | 读写全量 + `autodev`(write_local) | — |
+
+**双通道契约（local://）**：各 agent 的 frontmatter `output` 定义了 JTD schema——父 agent 默认消费 `summary + ref`，
+仅在需验证/决策时才 `read local://...md`。重产物通过 `autodev` tool `write_local` 持久化到 `.omp/autodev/artifacts/`。
+
+**派发失败 = 硬停机（fail-loud）**：**必须**按上述 agent 名精确派发。若 omp 因 agent 名未找到而退回匿名 `task`，
+**立刻停止并向人类报告**——禁止静默降级、禁止用匿名 subagent 替代。三个 agent 的 frontmatter 是安全边界（工具白名单
+阻止实现 agent 写状态、阻止侦察 agent 改文件），丢失此边界等于 ADR-0003 失效。
+
+**handoff / resume 前置条件**：autodev 的 slice 边界 handoff 只传递 handoff.md + slice YAML，**不携带 agent 定义**。
+resume 的新会话必须已安装 `@williamcodebox/autodev` extension（`omp plugin install @williamcodebox/autodev`），
+否则派发命名 agent 时触发 fail-loud 硬停机、resume 不可达。这是有意的安全设计——没有 agent 定义就没有安全边界。
+
+**agent 定义版本与遮蔽风险**：三个 agent 的 frontmatter 随 npm 包版本发布，不独立携带版本号。
+- **升级注意**：`omp plugin update @williamcodebox/autodev` 会替换 agent 定义——行为可能随版本变化，详见 CHANGELOG。
+- **遮蔽陷阱**（omp 发现优先级 project > user > npm plugin，按 agent.name 先到先得）：
+  若用户在 `~/.omp/agent/agents/` 或 `<project>/.omp/agents/` 放置了同名 agent 文件，**npm 包里的新版定义会被静默遮蔽**，
+  导致 R2 审查维度不全或 scout 工具白名单过宽。升级后必须清理用户/项目级的旧 agent 文件。
 
 ## 上下文预算护栏（始终在"最优区域"工作）
 父上下文窗口有限，且存在"最优区域"（相对模型窗口 30%~50% 时性价比最高；超过则 context rot 静默退化、
@@ -78,13 +98,14 @@ Lost-in-the-Middle 让中段信息准确率掉 30%+）。autodev 用一道**工�
 
 ## 主循环（严格按顺序）
 ### ① RECON-PLAN（LLM 决定侦察维度，不硬编码）
-用 `workflow` 扇出 N 个隔离 subagent，各自基于目标+developer_seed+base taxonomy 候选，提议一组 recon 维度
-（id/title/rationale/weight/suggested_tools/expected_artifact）。**每个 subagent 把重产物写 `local://recon-<dim>.md`，只回轻量 JSON summary**；
-你综合成最终 `dimensions[]`，落盘到 autodev.yaml 的 `recon.dimensions`。base taxonomy 只是候选种子，可增删改。
-（可选 2-round：再扇出对抗 subagent 裁剪不相关/冗余维度，同样走双通道契约。）
+扇出多个 `autodev-scout` agent，assignment 中标注 `round: RECON-PLAN`——要求发散探索、各自基于目标+developer_seed+base taxonomy 候选提议一组 recon 维度
+（id/title/rationale/weight/suggested_tools/expected_artifact）。base taxonomy 只是候选种子，可增删改。
+你综合各 scout 返回的 `recon_dimensions` + `findings` 成最终 `dimensions[]`，落盘到 autodev.yaml 的 `recon.dimensions`。
+（可选：再扇出一轮 scout 做对抗裁剪——标注 `round: RECON-PLAN-ADVERSARIAL`，对冗余/不相关维度判 prune。）
 
 ### ② RECON（真实侦察）
-对每个维度派一个隔离 recon subagent，返回结构化 dossier，每条结论带 `file:line` 证据。
+对每个维度派一个 `autodev-scout` agent，assignment 中标注 `round: RECON` + 具体维度——要求返回结构化 dossier，
+每条结论带 `file:line` 证据（scout 的 `read-summarize: false` 保证了精确度）。
 
 ### ②b RECON 维度置信度打分（侦察质量门，进 PLAN 前必过）
 把各维度 recon 返回喂给 `autodev` tool 的 `recon_score`（`recon_dims` 取自 autodev.yaml 的 `recon.dimensions`，
@@ -97,13 +118,25 @@ Lost-in-the-Middle 让中段信息准确率掉 30%+）。autodev 用一道**工�
 打分结果回写 autodev.yaml 的 `recon.dimensions`（携带 confidence/evidence_status/recon_pass）供审计。
 **低置信高风险维度（尤其 numerical_risk / mpi_boundary / precision_repro）未达 solid 前不得锁定方案。**
 
-### ③ PLAN（顶层方案，2-round 验收标准）
-用 **TwoRoundGate** 形成顶层方案的验收标准：
-- R1 起草：扇出多隔离 subagent 各自起草门控（machine + llm_judge 混合），你整合成提案；
-  每个 subagent 写 `local://gate-*.md`，只回轻量 JSON。
-- R2 对抗审查：再扇出多隔离 subagent 找 loopholes，你定稿；**mandatory 与 developer_seed 项不得被 R2 删除**，缺失由 `validateGateInvariants()` 自动补回。
+### ③ PLAN（顶层方案，TwoRoundGate——R1 草案 + R2 独立对抗审计）
+**R1 起草**：派一个 `autodev-gatekeeper` agent，assignment 标注 `round: R1` + 全部 scout 返回的
+`recon_dimensions` + `findings`。gatekeeper 起草 slices + tasks + depends_on + gates 的完整方案，
+输出 `slices[]` + `open_questions[]` + `evidence_references[]`。
+
+**R2 对抗审计**：扇出 **2-4 个独立 `autodev-gatekeeper` 实例**（每个实例是独立上下文，互不可见）。
+每个实例的 assignment 标注 `round: R2`，**只给 R1 草案全文 + 单一审查维度**：
+- "state machine legality"（迁移边、AC 类型合法性）
+- "gate completeness"（是否有可绕过的 gate、缺失的 machine verify）
+- "dependency ordering"（depends_on 拓扑是否正确、是否遗漏前驱）
+- "boundary conditions"（边界/错误路径是否覆盖、replan 逻辑正确）
+
+**禁止给 R2 实例 R1 的起草上下文或 scout 原始数据**——每个 R2 实例只能看到 R1 草案 + 自己的审查维度。
+每个 R2 实例输出 `r2_findings[]` + `issues_found` + `review_dimension`。
+
+你综合 R1 草案 + 全部 R2 实例的 `r2_findings`，修正方案后定稿。gatekeeper 的 R2 实例和 R1 实例的 `scout` spawn 共用同一个 agent 定义——宪法（AGENTS.md:36-37）要求的 "N isolated subagents" 由**多个独立派发**满足。
 - **强制项**（编译/构建/测试）由你强制并入 final_standard，R2 不可移除。
-把目标拆成 slices（含 depends_on 拓扑），初始化 autodev.yaml 与每个 slice.yaml（autodev tool: init）。
+- **mandatory 与 developer_seed 项不得被 R2 删除**，缺失由 `validateGateInvariants()` 自动补回。
+你据此调 autodev tool: init 落盘 autodev.yaml 与每个 slice.yaml。
 
 **init 仅调用一次（硬约束）**：若 `.omp/autodev/autodev.yaml` 已存在，**禁止重复 init 覆盖**——会静默清零
 `recon.dimensions` / `gate.*` / `slices[].stage/replan_attempts` 等全部累积进度。一律改用增量 operation
@@ -113,17 +146,16 @@ Lost-in-the-Middle 让中段信息准确率掉 30%+）。autodev 用一道**工�
 `.omp/autodev/slices/<id>.yaml`；**严禁**把 slice 详细内容内联进 `autodev.yaml`（父 yaml 仅持有
 `id/title/stage/depends_on/replan_attempts/slice_file` 等元数据）。
 
-### ④ SLICE EXECUTE（orchestrate，逐 slice）
+### ④ SLICE EXECUTE（逐 slice，由 autodev-implementer 执行）
 > **HITL 检查点 · plan_approval**（仅 hitl 模式）：在 ③ 定稿、进入 ④ 前，对每个 slice 调 `autodev` tool `hitl_request`（`gate: plan_approval`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev gate <id> accept`"。在 `hitl_respond` 裁决前不得进入 ④（工具层也会硬阻）。（若该 slice 涉及数值重构 / MPI 边界等高风险，附 `sensitivity: numerical_risk|mpi_boundary`，使 advisory 超时也**不**静默放行——P1-2）
 对每个 slice 按 depends_on 顺序：
 > **HITL 检查点 · slice_pre_exec**（仅 hitl 模式）：进入某 slice 执行前（`set_slice_stage executing` 之前），调 `autodev` tool `hitl_request`（`gate: slice_pre_exec`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev gate <id> accept`"。裁决前不得执行该 slice。
 > **HOTL 说明**（仅 hotl 模式）：Agent 自治执行，**不暂停**。人类可在任意时刻 `/autodev steer <text>` 下发指令。
 > **强约束（P1-6 / P0-4）**：你**必须**在每个主循环 checkpoint（每轮 `check_slice_gate` / `transition_task` / `replan` 调用点）主动调一次 `hotl_poll` 以吸收未消费的 steer——工具层也会在这些 op 内部自动吸收，但你必须显式 poll 以防 LLM 自觉漏吸收。若某 slice replan 超限收敛到 paused，人类用 `/autodev lifecycle resume` 继续。
 > **机器强停（P1-6）**：一旦人类调 `hotl_pause`/`hotl_cancel`，工具层已置 `loop_state=paused|cancelled` 并返回 **STRONG INSTRUCTION**，你必须**立即停手**（pause=停止所有自治工作、等待 resume；cancel=终止运行）。这是机器强制，不是咨询——无视强停指令等于违反核心契约。
-- 先走 **2-round 详细设计**（Design 阶段 subagent，其验收标准也走 TwoRoundGate）；
-- 进入执行前先调 `autodev` tool: `set_slice_stage`（slice_id，slice_stage: executing）；
-- 再 orchestrate 出 Implement → Verify 阶段 subagent，每阶段上下文隔离、自带验收；
-  （Design/Implement/Verify 各自重产物写 `local://slice-<id>-*.md`，回轻量 JSON；**verify 命令由 autodev tool 实际执行，不采信 subagent 自报的 PASS**）
+- 派 `autodev-implementer` agent，assignment 中传入目标 slice 的 YAML（id/tasks/gates/depends_on）。
+  implementer 内部走 Design→Implement→Verify 三阶段，返回 `status`（done/blocked/failed）+ `summary` + `verify_results[]` + `artifacts[]`。
+  **verify 命令由 `autodev` tool `verify` 真实执行（按退出码判定），implementer 只负责触发——不可采信自报的 PASS。**
 > **HITL 检查点 · verify_failure**（仅 hitl 模式）：若 `verify` 退出码非 0 或任务进入 blocked，调 `autodev` tool `hitl_request`（`gate: verify_failure`，`slice_id`）。**调完即停止**，提示人类："` await 审批：请运行 /autodev gate <id> accept|deny|force [reason]`（accept=接受现状继续 / deny=驳回回重规划 / force=人工免检染色）"。裁决前不得继续。
 - task 状态用 autodev tool 管理：todo→doing→done（**done 为终态，禁止回退**，`transition_task` 会拒绝非法迁移）；done 需其 `accept` 通过；
 - 每完成一个 task（done）或一条 AC（pass）后，**必须**调 `autodev` tool: `check_slice_gate`（slice_id）。

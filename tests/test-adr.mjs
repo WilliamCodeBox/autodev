@@ -4,9 +4,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mkdtempSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
+// 清理临时目录（best-effort）：本机 WorkBuddy 的 safe-delete shim 会拦截 fs.rmSync
+// 对深层递归目录偶发抛错，因此包一层 try/catch 保证测试套件能正常收尾。
+function safeRm(p) {
+  try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* ignore cleanup failure */ }
+}
 import {
   loadAutodev, initAutodev, appendADR, readJournal,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 let passed = 0;
@@ -61,7 +67,7 @@ function readFile(fp) {
   ok('ADR-1 上下文内容', c.includes('ABI 不一致'));
   ok('ADR-1 决策内容', c.includes('.def 导出'));
   ok('ADR-1 后果列表项', c.includes('- ABI 稳定'));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 2) ID 自增 + 多 ADR 顺序
@@ -77,7 +83,7 @@ function readFile(fp) {
   // 目录文件数
   const files = fs.readdirSync(path.join(root, 'docs/adr')).filter(f => f.endsWith('.md'));
   ok('docs/adr 含 3 个 md 文件', files.length === 3);
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 3) 缺少 title 抛错
@@ -86,7 +92,7 @@ function readFile(fp) {
   let threw = false;
   try { appendADR(root, { decision: 'x', consequences: [] }); } catch (e) { threw = e.message.includes('requires title'); }
   ok('缺少 title 抛错', threw);
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 4) 缺少 decision 抛错
@@ -95,7 +101,7 @@ function readFile(fp) {
   let threw = false;
   try { appendADR(root, { title: 'x', consequences: [] }); } catch (e) { threw = e.message.includes('requires title and decision'); }
   ok('缺少 decision 抛错', threw);
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 5) consequences 为空 → 默认占位符
@@ -104,7 +110,7 @@ function readFile(fp) {
   const r = appendADR(root, { title: 'No cons', decision: 'pick A', context: 'foo' });
   const c = readFile(r.path);
   ok('consequences 为空时输出占位符', c.includes('- (待补充)'));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 6) 无 context 时输出待补充占位
@@ -114,7 +120,7 @@ function readFile(fp) {
   const c = readFile(r.path);
   const ctxMatch = c.match(/## Context[\s\S]*?(?=## Decision)/);
   ok('无 context 时 Context 段含待补充', ctxMatch !== null && ctxMatch[0].includes('待补充'));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 7) 多后果正确渲染缩进
@@ -129,7 +135,7 @@ function readFile(fp) {
   const c = readFile(r.path);
   const consLines = c.split('\n').filter(l => l.startsWith('- 好处') || l.startsWith('- 代价'));
   ok('后果全部渲染为列表项', consLines.length === 3);
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 8) slug 只含英文字母时的干净结果
@@ -137,7 +143,7 @@ function readFile(fp) {
   const root = makeRoot();
   const r = appendADR(root, { title: 'Use Redis for Cache Layer', decision: 'X', context: 'c', consequences: [] });
   ok('英文 slug 全小写连字符', r.slug === 'use-redis-for-cache-layer');
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 9) slug 含特殊字符时被清理
@@ -145,7 +151,7 @@ function readFile(fp) {
   const root = makeRoot();
   const r = appendADR(root, { title: 'What: the *best* approach? (2024)', decision: 'X', context: 'c', consequences: [] });
   ok('特殊字符 slug 被清理', r.slug === 'what-the-best-approach-2024');
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 10) 无 autodev.yaml 时 fallback 到目录扫描（自 ADR 场景）
@@ -158,7 +164,7 @@ function readFile(fp) {
   // 验证没有 journal（无 autodev.yaml 时不写 journal）
   const jp = path.join(root, '.omp/autodev/run.json');
   ok('自 ADR 不写 journal', !fs.existsSync(jp));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 11) decider=human 时模板正确
@@ -175,7 +181,7 @@ function readFile(fp) {
   const c = readFile(r.path);
   ok('Decider=human 渲染正确', c.includes('decider: human'));
   ok('Origin=HITL 渲染正确', c.includes('origin: HITL'));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 12) 未提供 slice_id 时不产生 Slice 行
@@ -186,7 +192,7 @@ function readFile(fp) {
   });
   const c = readFile(r.path);
   ok('无 slice_id 时不渲染 slice 行', !/\bslice:/.test(c));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 13) 写入 journal
@@ -196,7 +202,7 @@ function readFile(fp) {
   const j = readJournal(root);
   const last = j.events[j.events.length - 1];
   ok('journal 记录 adr_append 事件', last && last.op === 'adr_append' && last.adr_id === '0001');
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 14) 自 ADR 空目录时从 id=1 开始
@@ -209,7 +215,7 @@ function readFile(fp) {
   ok('第二条 ADR id=0002', r2.id === '0002');
   const files = fs.readdirSync(path.join(root, 'docs/adr')).filter(f => f.endsWith('.md'));
   ok('docs/adr 含 2 个文件', files.length === 2);
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 15) 自 ADR 已有文件时取 max_id+1
@@ -222,7 +228,7 @@ function readFile(fp) {
   const r = appendADR(root, { title: 'After existing', decision: 'C', context: 'c', consequences: [] });
   ok('已有文件时取 max_id+1=0006', r.id === '0006');
   ok('新文件存在', fs.existsSync(r.path));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 16) 自 ADR 混合 yaml 场景：有 autodev.yaml 时优先用 yaml 计数器
@@ -242,7 +248,7 @@ function readFile(fp) {
   ok('有 yaml 时 id=0001 而非 9999', r.id === '0001');
   const doc = loadAutodev(root);
   ok('yaml 计数器自增到 2', doc.adr?.next_id === 2);
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 17) YAML frontmatter 结构正确：以 --- 开头，有 --- 分隔线
@@ -252,7 +258,7 @@ function readFile(fp) {
   const c = readFile(r.path);
   ok('frontmatter 以 --- 开头', c.startsWith('---\n'));
   ok('frontmatter 有闭合 ---', /^---\n[\s\S]*?\n---\n\n/.test(c));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 18) YAML frontmatter 可解析为合法 YAML，字段值正确
@@ -276,7 +282,7 @@ function readFile(fp) {
   ok('frontmatter slice=S2', dict.slice === 'S2');
   // body 不含旧格式
   ok('body 无旧格式 - ** 元数据', !/\n- \*\*/.test(c));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 19) 无 slice_id 时 frontmatter 无 slice 行
@@ -287,7 +293,7 @@ function readFile(fp) {
   const m = c.match(/^---\n([\s\S]*?)\n---/);
   ok('frontmatter 块可提取', m && m[1].length > 0);
   ok('frontmatter 无 slice 行', !m[1].includes('slice:'));
-  fs.rmSync(root, { recursive: true, force: true });
+  safeRm(root);
 }
 
 // 20) 消费项目场景 frontmatter 与自 ADR 格式一致

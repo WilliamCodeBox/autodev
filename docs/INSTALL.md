@@ -1,40 +1,41 @@
-# autodev Offline Installation
+# autodev Installation
 
-Version: see [VERSION](../VERSION). Tarball: `autodev-v{VERSION}-offline.tar.gz`.
+Version: see [VERSION](../VERSION). Package: `@williamcodebox/autodev`.
 
-## Install (Choose One)
+## Install
 
-### A. Global Install (Available to All Projects)
 ```bash
-mkdir -p ~/.omp/agent
-tar -xzf autodev-v{VERSION}-offline.tar.gz -C ~/.omp/agent/
+omp plugin install @williamcodebox/autodev
 ```
 
-Verify:
+The package provides three named agents (`autodev-scout`, `autodev-gatekeeper`, `autodev-implementer`), the `/autodev` slash command, and the `autodev` tool.
+
+## Verify
+
 ```bash
-ls ~/.omp/agent/tools/autodev/index.ts
-ls ~/.omp/agent/tools/autodev/lib/
+omp plugin list
+# Should show @williamcodebox/autodev as enabled
+
+# Verify agents are discoverable (see them in agent suggestions when spawning subagents)
 ```
 
-### B. Project-Level Install (Current Repository Only)
+## Migration from Tarball (v1.0.0 and earlier)
+
+If you previously installed autodev by extracting a tarball to `~/.omp/agent/` or `<project>/.omp/`, you **must** remove the old files before installing the npm package. The old files use the builtin discovery provider (priority 100), which **shadows** the npm plugin provider (priority 90).
+
 ```bash
-cd <project-root>
-mkdir -p .omp
-tar -xzf autodev-v{VERSION}-offline.tar.gz -C .omp/
+# Global old install
+rm -rf ~/.omp/agent/tools/autodev \
+       ~/.omp/agent/commands/autodev.md \
+       ~/.omp/agent/skills/autodev
+
+# Project-level old install
+rm -rf <project>/.omp/tools/autodev \
+       <project>/.omp/commands/autodev.md \
+       <project>/.omp/skills/autodev
 ```
 
-Verify:
-```bash
-ls .omp/tools/autodev/index.ts
-ls .omp/tools/autodev/lib/
-```
-
-## Enable
-Restart omp or reload extensions.
-
-Verify:
-- `autodev` tool is callable
-- `/autodev` slash command is registered
+Then install via `omp plugin install @williamcodebox/autodev` as above.
 
 ## Runtime Data
 On first run, `.omp/autodev/` is created automatically:
@@ -46,10 +47,10 @@ handoffs/             # Slice handoff records
 run.json              # Event log
 ```
 
+## Handoff / Resume Prerequisite
+Slice boundary handoff only carries `handoff.md` + slice YAML — **agent definitions are not transferred**. A session resuming from handoff must have `@williamcodebox/autodev` installed, or the parent agent will fail-loud when trying to spawn named agents.
+
 ## Uninstall
 ```bash
-rm -rf ~/.omp/agent/tools/autodev \
-       ~/.omp/agent/commands/autodev.md \
-       ~/.omp/agent/skills/autodev
+omp plugin uninstall @williamcodebox/autodev
 ```
-(For project-level install, replace `~/.omp/agent` with `<project>/.omp`)

@@ -157,6 +157,8 @@ const factory = (pi: any) => ({
           if (!s) return err(`ERR: no slice ${p.slice_id}`);
           // P0-3 硬阻塞：本 slice 存在未裁决 HITL gate 时，拒绝推进任何 task。
           const docTT = loadAutodev(root);
+          // P1-2：HOTL paused 时拒绝所有状态推进（机器强制，非 prompt 咨询）。
+          if (docTT && isPaused(docTT)) return err(`LOOP_PAUSED: HOTL is paused; all state mutations blocked until hotl_resume`);
           if (docTT && sliceHasPendingGate(docTT, p.slice_id)) {
             const ids = (docTT.hitl.pending_gates || [])
               .filter((g: any) => !g.resolved && g.scope !== 'final' && g.slice_id === p.slice_id)
@@ -188,6 +190,8 @@ const factory = (pi: any) => ({
             if (!s) return err(`ERR: no slice ${p.slice_id}`);
             // P0-3 硬阻塞：pending HITL gate 存在时禁止改 AC 状态（override 走 hitl_respond）。
             const docSG = loadAutodev(root);
+            // P1-2：HOTL paused 时拒绝所有状态推进。
+            if (docSG && isPaused(docSG)) return err(`LOOP_PAUSED: HOTL is paused; all state mutations blocked until hotl_resume`);
             if (docSG && sliceHasPendingGate(docSG, p.slice_id)) {
               const ids = (docSG.hitl.pending_gates || [])
                 .filter((g: any) => !g.resolved && g.scope !== 'final' && g.slice_id === p.slice_id)
@@ -196,6 +200,11 @@ const factory = (pi: any) => ({
             }
             const ac = (s.acceptance_criteria || []).find((a: any) => a.id === p.gate_id);
             if (!ac) return err(`ERR: no AC ${p.gate_id} in slice ${p.slice_id}`);
+            // P0-2 硬校验：machine gate（含 verify 命令）写 pass 必须有 runVerify 的时间戳证据。
+            // llm_judge 或纯人工裁决（无 verify 命令）无需 verified_at——这两类不依赖机器验证。
+            if (p.gate_status === 'pass' && ac.verify && !ac.verified_at) {
+              return err(`ERR: machine gate ${p.gate_id} has verify command but no verified_at timestamp — call verify first, then set_gate based on exit code`);
+            }
             ac.status = p.gate_status;
             saveSliceAndSyncParent(root, s);
             appendJournal(root, { op: 'set_gate', gate_scope: 'slice_ac', gate_id: p.gate_id, gate_status: p.gate_status });
@@ -241,6 +250,8 @@ const factory = (pi: any) => ({
           if (!s) return err(`ERR: no slice ${p.slice_id}`);
           // P0-3 硬阻塞：pending HITL gate 存在时，禁止 reconcile 推进到 done。
           const docCSG = loadAutodev(root);
+          // P1-2：HOTL paused 时拒绝所有状态推进。
+          if (docCSG && isPaused(docCSG)) return err(`LOOP_PAUSED: HOTL is paused; all state mutations blocked until hotl_resume`);
           if (docCSG && sliceHasPendingGate(docCSG, p.slice_id)) {
             const ids = (docCSG.hitl.pending_gates || [])
               .filter((g: any) => !g.resolved && g.scope !== 'final' && g.slice_id === p.slice_id)
@@ -266,6 +277,9 @@ const factory = (pi: any) => ({
           // 注意：stage:done 应优先由 check_slice_gate 落盘（带门控判定），此处仅作显式推进/纠偏。
           if (!p.slice_id || !p.slice_stage) return err('ERR: set_slice_stage requires slice_id, slice_stage');
           if (!SLICE_STAGES.includes(p.slice_stage)) return err(`ERR: invalid slice_stage ${p.slice_stage}`);
+          // P1-2：HOTL paused 时拒绝所有状态推进。
+          const docSSS = loadAutodev(root);
+          if (docSSS && isPaused(docSSS)) return err(`LOOP_PAUSED: HOTL is paused; all state mutations blocked until hotl_resume`);
           const s = loadSlice(root, p.slice_id);
           if (!s) return err(`ERR: no slice ${p.slice_id}`);
           s.stage = p.slice_stage;

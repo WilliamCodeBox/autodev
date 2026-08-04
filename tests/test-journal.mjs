@@ -7,7 +7,7 @@ import {
   saveAutodev, loadAutodev, loadSlice, saveSlice,
   writeArtifact, readArtifact, readJournal, appendJournal, resumeState, runVerify,
   buildFinalStandard,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 
 let passed = 0;
 function ok(name, cond) {

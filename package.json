@@ -1,0 +1,34 @@
+{
+  "name": "@williamcodebox/autodev",
+  "version": "1.1.0",
+  "description": "autodev - YAML state-machine orchestration framework for oh-my-pi (omp): recon, plan, sliced execution with HITL/HOTL gates",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "agents/",
+    "commands/",
+    "skills/",
+    "tools/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "omp",
+    "oh-my-pi",
+    "omp-plugin",
+    "autodev",
+    "agent",
+    "orchestration",
+    "state-machine"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WilliamCodeBox/autodev.git"
+  },
+  "homepage": "https://github.com/WilliamCodeBox/autodev#readme",
+  "bugs": {
+    "url": "https://github.com/WilliamCodeBox/autodev/issues"
+  },
+  "dependencies": {}
+}

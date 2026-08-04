@@ -1,6 +1,6 @@
 // test-yaml.mjs — 全面校验 js-yaml 对 autodev 状态文件的往返稳定性与格式正确性。
 // 从 autodev-extension/ 目录运行：node tests/test-yaml.mjs
-import { load as parse, dump as stringify } from '../src/tools/autodev/lib/js-yaml.mjs';
+import { load as parse, dump as stringify } from '../tools/autodev/lib/js-yaml.mjs';
 import fs from 'node:fs';
 
 // 内联 flow map（如 {a: 1, b: "x,y"}）解析：js-yaml 直接 load 即可。

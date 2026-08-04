@@ -12,13 +12,13 @@ function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('  
 
 import {
   initAutodev, loadAutodev, saveAutodev, loadSlice, saveSlice, saveSliceAndSyncParent, establishMode, isHotlActive,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 import {
   hitlRequest, hitlRespond, hitlConfig, applyTimeoutPolicy, classifyMachineGate,
-} from '../src/tools/autodev/lib/hitl-gates.mjs';
+} from '../tools/autodev/lib/hitl-gates.mjs';
 import {
   hotlInit, hotlSteer, hotlPause, absorbSteer, hotlDashboard, detectSteerConflicts,
-} from '../src/tools/autodev/lib/hotl-steer.mjs';
+} from '../tools/autodev/lib/hotl-steer.mjs';
 
 const baseDoc = {
   project: 'p1-test', mode: 'auto', status: 'running', max_replans: 3,

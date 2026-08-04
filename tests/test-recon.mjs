@@ -1,6 +1,6 @@
 // test-recon.mjs —— recon 维度置信度打分测试
 import assert from 'node:assert';
-import { scoreReconDimension, scoreReconDimensions, classifyReconConfidence, hasFileLine, hasRiskSignal, confidenceDelta } from '../src/tools/autodev/lib/recon-score.mjs';
+import { scoreReconDimension, scoreReconDimensions, classifyReconConfidence, hasFileLine, hasRiskSignal, confidenceDelta } from '../tools/autodev/lib/recon-score.mjs';
 
 let n = 0;
 function ok(name, cond) {

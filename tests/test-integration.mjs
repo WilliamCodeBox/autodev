@@ -10,7 +10,7 @@ import {
   loadSlice, saveSlice, saveSliceAndSyncParent, reconcileSliceStage,
   transitionTask, canTransitionTask, checkSliceGate,
   buildFinalStandard, validateGateInvariants, checkFinalGate, initAutodev,
-} from '../src/tools/autodev/lib/autodev-state.mjs';
+} from '../tools/autodev/lib/autodev-state.mjs';
 
 let pass = 0, fail = 0;
 function check(name, cond) {

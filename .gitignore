@@ -4,6 +4,7 @@
 .omp/tools/
 .omp/commands/
 .omp/skills/
+.omp/agents/
 
 # --- Node.js ---
 node_modules/
