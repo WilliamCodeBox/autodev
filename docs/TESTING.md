@@ -28,7 +28,7 @@ node tests/run-integration.mjs --list
 node tests/run-integration.mjs --only=SceneName
 ```
 
-## 7-Scenario Coverage Matrix
+## 9-Scenario Coverage Matrix
 
 | Scenario | Axis | Coverage |
 |----------|------|----------|
@@ -39,3 +39,15 @@ node tests/run-integration.mjs --only=SceneName
 | hotl-steer | Code | steer -> poll -> pause -> resume -> cancel |
 | e2e-omp | Prompt | `omp -p` runs autodev (auto-skips without omp) |
 | context-budget | Code | three-zone, readGate hard reject, LRU eviction |
+| agent-frontmatter | Code | static check: name/tools/output schema, whitelist enforcement (test-agents.mjs) |
+| tool-layer-hardening | Code | verified_at guard, isPaused blocking (test-state.mjs + test-hotl.mjs addenda) |
+
+### Unit Tests (independent of omp)
+```bash
+node tests/test-agents.mjs     # agent frontmatter & whitelist (v1.1.0)
+node tests/test-state.mjs      # state machine core + verified_at (v1.1.0)
+node tests/test-hotl.mjs       # HOTL + isPaused guards (v1.1.0)
+node tests/test-hitl.mjs       # HITL gates
+node tests/test-glue.mjs       # tool API glue
+node tests/test-guard.mjs      # prompt structural guard
+node tests/test-latent-bugs.mjs # latent bugs regression
