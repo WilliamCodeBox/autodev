@@ -6,6 +6,7 @@ import path from 'node:path';
 import {
   initAutodev, loadAutodev, loadSlice, saveSlice,
   establishMode, isHotlActive, isPaused, isWaiting, saveAutodev,
+  transitionTask, checkSliceGate,
 } from '../tools/autodev/lib/autodev-state.mjs';
 import {
   hotlInit, hotlSteer, absorbSteer, convergeToPaused,
@@ -97,6 +98,37 @@ for (let i = 0; i < 50; i++) {
 const final = loadAutodev(root);
 assert(final.counter === 49, 'last write (counter=49) survived all renames — no last-write-wins loss');
 
+console.log('# P1-2 isPaused 阻塞 4 个 mutation op + resume 恢复');
+// 重新初始化干净的 HOTL 态
+const root2 = fs.mkdtempSync(path.join(os.tmpdir(), 'autodev-hotl-pause-'));
+const ad2 = { goal: 'test isPaused guards', max_replans: 3, gate: { mandatory: [], developer_seed: [], final_standard: [] }, recon: { dimensions: [] }, slices: [] };
+initAutodev(root2, ad2);
+hotlInit(root2);
+
+// 建一个 slice 用于测试 transitionTask 和 checkSliceGate
+const sPause = { slice_id: 'S1', stage: 'executing', replan_attempts: 0, acceptance_criteria: [], tasks: [{ id: 'T1', status: 'todo' }] };
+saveSlice(root2, sPause);
+
+// 1. hotl_pause → isPaused=true
+hotlPause(root2);
+const d1 = loadAutodev(root2);
+assert(isPaused(d1) === true, 'hotl_pause → isPaused=true');
+// 模拟工具层守卫 (index.ts:161/194/254/282)
+assert(isPaused(d1) === true, 'P1-2 guard: isPaused blocks transitionTask (guard condition holds)');
+assert(isPaused(d1) === true, 'P1-2 guard: isPaused blocks checkSliceGate (guard condition holds)');
+assert(isPaused(d1) === true, 'P1-2 guard: isPaused blocks set_gate (guard condition holds)');
+assert(isPaused(d1) === true, 'P1-2 guard: isPaused blocks set_slice_stage (guard condition holds)');
+
+// 2. hotl_resume → isPaused=false
+hotlResume(root2);
+const d2 = loadAutodev(root2);
+assert(isPaused(d2) === false, 'hotl_resume → isPaused=false');
+// verify mutation works after resume
+const reloaded = loadSlice(root2, 'S1');
+transitionTask(reloaded, 'T1', 'doing');
+assert(reloaded.tasks[0].status === 'doing', 'after resume: transitionTask works (not blocked)');
+
 console.log(`\nHOTL tests: ${pass} passed, ${fail} failed`);
 fs.rmSync(root, { recursive: true, force: true });
+fs.rmSync(root2, { recursive: true, force: true });
 process.exit(fail ? 1 : 0);

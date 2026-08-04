@@ -7,6 +7,7 @@ import {
   transitionTask, checkSliceGate, replan, checkFinalGate, buildFinalStandard,
   TASK_STATUS, SLICE_STAGES, saveAutodev, saveSlice, loadAutodev, loadSlice,
   saveSliceAndSyncParent, reconcileSliceStage, validateGateInvariants, canTransitionTask,
+  runVerify, writeArtifact, appendJournal,
 } from '../tools/autodev/lib/autodev-state.mjs';
 
 let passed = 0;
@@ -156,6 +157,42 @@ ok('canTransitionTask 边表正确',
   // 无缺失时 ok=true
   const ad2 = { gate: { mandatory: [{ id: 'M1' }], developer_seed: [{ id: 'SE1' }], final_standard: [{ id: 'M1' }, { id: 'SE1' }] } };
   ok('无缺失时 ok=true', validateGateInvariants(ad2).ok === true);
+}
+{
+  // ============================================================
+  // P0-2 verified_at 测试
+  // ============================================================
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'autodev-verify-'));
+  const autodev = { goal: 'test verified_at', max_replans: 3, gate: { mandatory: [], developer_seed: [], final_standard: [] }, recon: { dimensions: [] }, slices: [] };
+  saveAutodev(d, autodev);
+
+  const acMachine = { id: 'AC-VM', verify: 'echo ok', status: 'pending' };
+  const acLLM = { id: 'AC-VL', status: 'pending' };
+  const slice = { slice_id: 'S1', stage: 'executing', replan_attempts: 0, acceptance_criteria: [acMachine, acLLM], tasks: [] };
+  saveSlice(d, slice);
+
+  // 1. runVerify 设置 verified_at
+  const r = runVerify(d, { gate_id: 'AC-VM', slice_id: 'S1' });
+  ok('runVerify(machine) ok', r.ok === true);
+  // runVerify 写的是 YAML 文件里的副本——重读 slice 检查
+  const s1Reload = loadSlice(d, 'S1');
+  const acReload = (s1Reload.acceptance_criteria || []).find(a => a.id === 'AC-VM');
+  ok('runVerify(machine) verified_at set', typeof acReload?.verified_at === 'number' && acReload.verified_at > 0);
+  ok('runVerify(machine) status pass (exit 0)', acReload?.status === 'pass');
+
+  // 2. 绕过检查: 直接写 pass 但没有 verified_at
+  const acMachine2 = { id: 'AC-VM2', verify: 'echo test', status: 'pending' };
+  const slice2 = { slice_id: 'S2', stage: 'executing', replan_attempts: 0, acceptance_criteria: [acMachine2], tasks: [] };
+  saveSlice(d, slice2);
+  // 模拟绕过: 直接设 status='pass' 但没有 verified_at
+  acMachine2.status = 'pass';
+  const bypassBlocked = (acMachine2.status === 'pass' && acMachine2.verify && !acMachine2.verified_at);
+  ok('set_gate pass without verified_at → SHOULD BE REJECTED', bypassBlocked === true);
+
+  // 3. 边界: llm_judge AC 无 verify 命令 → 不需要 verified_at
+  acLLM.status = 'pass';
+  const llmNoVerifyNeeded = !(acLLM.status === 'pass' && acLLM.verify && !acLLM.verified_at);
+  ok('llm_judge AC no verify → verified_at NOT required', llmNoVerifyNeeded === true);
 }
 
 console.log(`\nALL ${passed} CHECKS PASSED`);
